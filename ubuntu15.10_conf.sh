@@ -12,3 +12,4 @@ sudo apt-get install fcitx-table-wbpy
 
 #Install git version control tools
 sudo apt-get install git
+
