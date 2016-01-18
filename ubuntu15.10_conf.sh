@@ -10,6 +10,5 @@ sudo apt-get install fcitx-table-wbpy
 #When input method been installe, the os should be reboot
 #reboot
 
-#Install git version control tools
-sudo apt-get install git
+
 
