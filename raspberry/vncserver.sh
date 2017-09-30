@@ -12,8 +12,8 @@ cat >> tightvncserver <<EOF
 #!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          tightvncserver
-# Required-Start:    $local_fs
-# Required-Stop:     $local_fs
+# Required-Start:    \$local_fs
+# Required-Stop:     \$local_fs
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Start/stop tightvncserver
@@ -24,15 +24,15 @@ cat >> tightvncserver <<EOF
 
 ### Customize this entry
 # Set the USER variable to the name of the user to start tightvncserver under
-export USER='pi'
+export USER=$USER
 ### End customization required
 
-eval cd ~$USER
+eval cd ~\$USER
 
-case "$1" in
+case "\$1" in
   start)
     # 启动命令行。此处自定义分辨率、控制台号码或其它参数。
-    su $USER -c '/usr/bin/tightvncserver -depth 16 -geometry 800x600 :1'
+    su \$USER -c '/usr/bin/tightvncserver -depth 16 -geometry 800x600 :1'
     echo "Starting TightVNC server for $USER "
     ;;
   stop)
