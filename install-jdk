@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+JDK_URI="http://download.oracle.com/otn-pub/java/jdk/9.0.1+11/jdk-9.0.1_linux-x64_bin.tar.gz"
+
+while getopts :i: opt
+do
+	case "$opt" in
+	i)
+		JDK_URI="$OPTARG"
+	;;
+	*)
+		echo Usage: install-jdk -i [jdk-url]
+	;;
+	esac
+
+done
+
+JDK_FILE=$(basename $JDK_URI)
+
+if [ -n "$JDK_URI" -a ! -f $JDK_FILE ]
+then
+	sudo apt-get update
+	sudo apt-get install -y wget
+	wget --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" $JDK_URI
+fi
+
+if [ -f $JDK_FILE ] 
+then
+	echo Decompressing the file: $JDK_FILE ...
+	JDK_DIR=$(tar -zxvf $JDK_FILE | awk -F "/" '{print $1}' | tail -n 1)
+	echo Decompression Complete!
+fi
+
+if [ -d $JDK_DIR ]
+then
+	JDK_ENV=$(grep JDK_HOME ~/.bashrc)
+	if [ -z "$JDK_ENV" ] 
+	then
+		echo Configuring the JDK environment variable ...		
+		echo "JDK_HOME=$(pwd)/$JDK_DIR/" >> ~/.bashrc
+		echo 'CLASSPATH=.:$JDK_HOME/lib' >> ~/.bashrc
+		echo 'PATH=$PATH:$JDK_HOME/bin' >> ~/.bashrc
+		source ~/.bashrc
+		export JDK_HOME CLASSPATH PATH
+		echo JDK environment variable has been added in the ~/.bashrc
+	fi	
+	echo
+	echo JDK environment variable:
+	echo 
+	echo $JDK_ENV
+fi 	
+
+echo Install JDK Completed!
+echo
+echo "If you type command: 'javac -version' has error, you should execute the"
+echo "command once in parent shell: "
+echo 
+echo "       source ~/.bashrc"
+echo
