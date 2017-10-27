@@ -2,7 +2,19 @@
 
 function usage()
 {
-    echo Usage:
+    echo
+    echo "Usage:"
+    echo
+    echo "    joker [ -j <jdk-tar.gz-package-url> | -v | -s ]"
+    echo
+    echo "Options:"
+    echo
+    echo "    -j <jdk-tar.gz-package-url>, install specified jdk version"
+    echo 
+    echo "    -v, config the user vim schema"
+    echo
+    echo "    -s, config the user shell schema"
+    echo
 }
 
 if [ $# -eq 0 ]
@@ -25,9 +37,12 @@ case "$kernel" in
         exit 1;;
 esac
 
-while getopts ":vs" opt
+while getopts ":jvs" opt
 do
     case "$opt" in
+    j)
+        source install-jdk
+        ;;
     v)
         source vim-config
         ;;

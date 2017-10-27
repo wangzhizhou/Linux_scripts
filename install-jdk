@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+$(java -version)
+if [ $? -eq 0 ]
+then
+	echo "JDK has been installed!"
+	exit 1;
+fi
 
 JDK_URI="http://download.oracle.com/otn-pub/java/jdk/9.0.1+11/jdk-9.0.1_linux-x64_bin.tar.gz"
 
