@@ -234,7 +234,7 @@ then
     echo    "line   39:"
     echo    "E887: Sorry, this command is disabled, the Python's site module could not be loaded."
     echo
-    echo You should install the python-dev and re-install the PlugIns.
+    echo You should install the vim-nox with apt-get and re-install the PlugIns.
 fi
 echo
 echo Start Vim to Install the PlugIn specified in ~/.vimrc
