@@ -226,5 +226,17 @@ EOF
 if [ $? -eq 0 ]
 then
     echo "Your have completed configure your vim editor"
+    echo
+    echo Tips:
+    echo If you open an file with vim, and show the error as follow: 
+    echo 
+    echo    "Error detected while processing function youcompleteme#Enable[5]..<SNR>98_SetUpPython:"
+    echo    "line   39:"
+    echo    "E887: Sorry, this command is disabled, the Python's site module could not be loaded."
+    echo
+    echo You should install the python-dev and re-install the PlugIns.
 fi
-
+echo
+echo Start Vim to Install the PlugIn specified in ~/.vimrc
+vim -c PlugInstall -c q -c q
+echo Now, you can use your vim IDE, enjoy it!
