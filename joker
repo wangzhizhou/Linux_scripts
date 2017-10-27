@@ -47,6 +47,7 @@ do
         source vim-config
         ;;
     s)
+        source bash-config
         ;;
     *)
         usage
@@ -54,3 +55,5 @@ do
         ;;
     esac
 done
+
+echo Completed!
