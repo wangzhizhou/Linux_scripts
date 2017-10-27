@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# -*- coding: utf-8 -*-
+
+cat > ~/.bash_profile <<EOF
+
+# config the shell prompt schema
+export CLICOLOR=1
+# \h:\W \u$
+export PS1='\[\033[01;33m\]\u@\h\[\033[01;31m\] \W$\[\033[00m\] '
+
+# for system command
+alias grep='grep --color=auto'
+alias ll='ls -l'
+alias ls='ls -GF'
+alias mv='mv -i'
+alias cp='cp -i'
+alias rm='rm -i'
+alias q='exit'
+
+# for git
+alias g='git'
+
+# for python
+alias p='python'
+alias p3='python3'
+
+# for ffmpeg
+alias ff='ffmpeg'
+alias fp='ffplay'
+alias fpb='ffprobe'
+alias fs='ffserver'
+
+EOF
