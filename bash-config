@@ -4,9 +4,46 @@
 cat > ~/.bash_profile <<EOF
 
 # config the shell prompt schema
-export CLICOLOR=1
 # \h:\W \u$
-export PS1='\[\033[01;33m\]\u@\h\[\033[01;31m\] \W$\[\033[00m\] '
+# \d ：#代表日期，格式为weekday month date，例如："Mon Aug 1"
+# \H ：#完整的主机名称
+# \h ：#仅取主机的第一个名字
+# \t ：#显示时间为24小时格式，如：HH：MM：SS
+# \T ：#显示时间为12小时格式
+# \A ：#显示时间为24小时格式：HH：MM
+# \u ：#当前用户的账号名称
+# \v ：#BASH的版本信息
+# \w ：#完整的工作目录名称
+# \W ：#利用basename取得工作目录名称，所以只会列出最后一个目录
+# \# ：#下达的第几个命令
+# \$ ：#提示字符，如果是root时，提示符为：# ，普通用户则为：$
+#
+# 字符颜色的格式:
+#               \[\e[F;Bm\]
+# 其中“F“为字体颜色，编号为30-37，“B”为背景颜色，编号为40-47
+#
+#      F       B
+#      30      40      黑色
+#      31      41      红色
+#      32      42      绿色
+#      33      43      黄色
+#      34      44      蓝色
+#      35      45      紫红色
+#      36      46      青蓝色
+#      37      47      白色
+#
+
+BLACK=$'\e[30;40m'
+RED=$'\e[31;40m'
+GREEN=$'\e[32;40m'
+YELLOW=$'\e[33;40m'
+BLUE=$'\e[34;40m'
+PURPLE=$'\e[35;40m'
+CYAN=$'\e[36;40m'
+WHITE=$'\e[37;40m'
+
+export CLICOLOR=1
+export PS1='\${GREEN}\u\${PURPLE}@\${WHITE}\h \${YELLOW}\w\${CYAN}\$ '
 
 # for system command
 alias grep='grep --color=auto'
@@ -31,3 +68,5 @@ alias fpb='ffprobe'
 alias fs='ffserver'
 
 EOF
+
+source ~/.bash_profile
