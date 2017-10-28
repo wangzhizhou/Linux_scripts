@@ -43,7 +43,7 @@ CYAN=$'\e[36;40m'
 WHITE=$'\e[37;40m'
 
 export CLICOLOR=1
-export PS1='\${GREEN}\u\${PURPLE}@\${WHITE}\h \${YELLOW}\w\${CYAN}\$ '
+export PS1='\${GREEN}\u\${GREEN}@\${GREEN}\h \${RED}\w\${RED}\$ \${WHITE}'
 
 # for system command
 alias grep='grep --color=auto'
