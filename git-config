@@ -15,8 +15,7 @@ cat >> ~/.gitconfig <<EOF
     email = 824219521@qq.com
 
 [alias]
-    l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=rela
-tive
+    l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative
     b = branch
     pl = pull
     pu = push
@@ -30,5 +29,5 @@ tive
 
 [color]
     ui = auto
-    
+
 EOF
