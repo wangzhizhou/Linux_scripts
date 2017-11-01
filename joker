@@ -9,6 +9,8 @@ function usage()
     echo
     echo "Options:"
     echo
+    echo "    -g, config the git user.name, user.email and alias"
+    echo
     echo "    -j <jdk-tar.gz-package-url>, install specified jdk version"
     echo 
     echo "    -v, config the user vim schema"
@@ -37,9 +39,12 @@ case "$kernel" in
         exit 1;;
 esac
 
-while getopts ":jvs" opt
+while getopts ":gjvs" opt
 do
     case "$opt" in
+    g)
+        source git-config
+        ;;
     j)
         source install-jdk
         ;;

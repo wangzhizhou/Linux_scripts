@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# -*- coding: utf-8 -*-
+
+$(git --version)
+if [ $? -ne 0 ]
+then
+	echo "Git has not been installed!"
+	exit 1;
+fi
+
+cat >> ~/.gitconfig <<EOF
+
+[user]
+    name = wangzhizhou
+    email = 824219521@qq.com
+
+[alias]
+    l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=rela
+tive
+    b = branch
+    pl = pull
+    pu = push
+    co = checkout
+    s = status
+    c = commit
+    a = add
+    r = remote
+    m = merge
+    d = diff
+
+[color]
+    ui = auto
+    
+EOF
