@@ -26,6 +26,7 @@ cat >> ~/.gitconfig <<EOF
     r = remote
     m = merge
     d = diff
+    cl = clean -dxf
 
 [color]
     ui = auto
