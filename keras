@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#-*-coding:utf-8-*-
+
+# Install the Keras with backend Tensorflow
+# ref: https://www.tensorflow.org/install/install_mac
+
+if [ -d "$1" ]
+then
+    cd "$1"
+    virtualenv keras -p python3
+    source keras/bin/activate
+    pip3 install tensorflow keras
+
+    echo
+    echo Your Keras has been configured in directory: 
+    echo "    $1"
+    echo 
+    echo enter the directory and activate the virtual environment with command:
+    echo "    source keras/bin/activate"
+else
+    echo You should specified a directory path to install the virtualenv for tensorflow
+fi
