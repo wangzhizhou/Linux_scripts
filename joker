@@ -43,16 +43,16 @@ while getopts ":gjvs" opt
 do
     case "$opt" in
     g)
-        source git-config
+        source ./git/git-config
         ;;
     j)
-        source install-jdk
+        source ./java/install-jdk
         ;;
     v)
-        source vim-config
+        source ./vim/vim-config
         ;;
     s)
-        source bash-config
+        source ./shell/bash-config
         ;;
     *)
         usage
