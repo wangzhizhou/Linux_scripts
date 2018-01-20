@@ -55,7 +55,7 @@ do
     s)
         source ./shell/bash-config
         ;;
-    t)  apt-get update && apt-get install -y git curl nginx screen
+    t)  source ./shell/tools
         ;;
     *)
         usage

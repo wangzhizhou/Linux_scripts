@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# -*- coding: utf-8 -*-
+
+$(apt-get --version)
+if [ $? -ne 0 ]
+then
+	echo "apt-get has not been installed!"
+	exit 1;
+fi
+
+apt-get update && apt-get install -y git curl wget screen nginx
