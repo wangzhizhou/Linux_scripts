@@ -8,7 +8,7 @@ then
 	exit 1;
 fi
 
-cat >> ~/.gitconfig <<EOF
+cat > ~/.gitconfig <<EOF
 
 [user]
     name = wangzhizhou
@@ -27,6 +27,10 @@ cat >> ~/.gitconfig <<EOF
     m = merge
     d = diff
     cl = clean -dxf
+    st = stash
+    stl = stash list
+    stp = stash pop
+
 
 [color]
     ui = auto
