@@ -17,6 +17,7 @@ function usage()
     echo
     echo "    -s, config the user shell schema"
     echo
+    echo "    -t, install tools with apt-get"
 }
 
 if [ $# -eq 0 ]
@@ -39,7 +40,7 @@ case "$kernel" in
         exit 1;;
 esac
 
-while getopts ":gjvs" opt
+while getopts ":gjvst" opt
 do
     case "$opt" in
     g)
@@ -53,6 +54,8 @@ do
         ;;
     s)
         source ./shell/bash-config
+        ;;
+    t)  apt-get update && apt-get install -y git curl nginx screen
         ;;
     *)
         usage
