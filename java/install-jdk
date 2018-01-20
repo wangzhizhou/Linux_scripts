@@ -6,7 +6,7 @@ then
 	exit 1;
 fi
 
-JDK_URI="http://download.oracle.com/otn-pub/java/jdk/9.0.1+11/jdk-9.0.1_linux-x64_bin.tar.gz"
+JDK_URI="http://download.oracle.com/otn-pub/java/jdk/9.0.4+11/c2514751926b4512b076cc82f959763f/jdk-9.0.4_linux-x64_bin.tar.gz"
 
 while getopts :i: opt
 do
@@ -34,7 +34,8 @@ if [ -f $JDK_FILE ]
 then
 	echo Decompressing the file: $JDK_FILE ...
 	JDK_DIR=$(tar -zxvf $JDK_FILE | awk -F "/" '{print $1}' | tail -n 1)
-	echo Decompression Complete!
+	mv $JDK_DIR /opt/
+	echo Decompression Complete! And moved to /opt
 fi
 
 if [ -d $JDK_DIR ]
@@ -43,12 +44,13 @@ then
 	if [ -z "$JDK_ENV" ] 
 	then
 		echo Configuring the JDK environment variable ...		
-		echo "JDK_HOME=$(pwd)/$JDK_DIR/" >> ~/.bashrc
+		echo "JDK_HOME=/opt/$JDK_DIR" >> ~/.bashrc
 		echo 'CLASSPATH=.:$JDK_HOME/lib' >> ~/.bashrc
 		echo 'PATH=$PATH:$JDK_HOME/bin' >> ~/.bashrc
 		source ~/.bashrc
 		export JDK_HOME CLASSPATH PATH
 		echo JDK environment variable has been added in the ~/.bashrc
+		rm $JDK_FILE
 	fi	
 	echo
 	echo JDK environment variable:

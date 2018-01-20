@@ -5,13 +5,13 @@ function usage()
     echo
     echo "Usage:"
     echo
-    echo "    joker [ -j <jdk-tar.gz-package-url> | -v | -s ]"
+    echo "    joker [ -j | -v | -s ]"
     echo
     echo "Options:"
     echo
     echo "    -g, config the git user.name, user.email and alias"
     echo
-    echo "    -j <jdk-tar.gz-package-url>, install specified jdk version"
+    echo "    -j  install specified jdk version"
     echo 
     echo "    -v, config the user vim schema"
     echo
@@ -55,7 +55,8 @@ do
     s)
         source ./shell/bash-config
         ;;
-    t)  source ./shell/tools
+    t)  
+	source ./shell/tools
         ;;
     *)
         usage
