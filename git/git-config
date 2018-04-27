@@ -24,13 +24,18 @@ cat > ~/.gitconfig <<EOF
     c = commit
     a = add
     r = remote
+    rv = remote -v
     m = merge
     d = diff
     cl = clean -dxf
     st = stash
-    stl = stash list
-    stp = stash pop
-
+    sl = stash list
+    sp = stash pop
+    sm = submodule
+    smi = submodule init
+    smu = submodule update
+    rst = reset
+    rvt = revert
 
 [color]
     ui = auto
