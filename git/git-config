@@ -14,6 +14,9 @@ cat > ~/.gitconfig <<EOF
     name = wangzhizhou
     email = 824219521@qq.com
 
+[diff]
+    submodule = log
+
 [alias]
     l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative
     b = branch
@@ -21,6 +24,8 @@ cat > ~/.gitconfig <<EOF
     pu = push
     po = push origin
     co = checkout
+    cl = clone
+    clrs = clone --recurse-submodules
     s = status
     c = commit
     a = add
@@ -28,13 +33,15 @@ cat > ~/.gitconfig <<EOF
     rv = remote -v
     m = merge
     d = diff
-    cl = clean -dxf
+    dsm = diff --submodule
+    cdf = clean -dxf
     st = stash
     sl = stash list
     sp = stash pop
     sm = submodule
     smi = submodule init
     smu = submodule update
+    smur = submodule update --remote
     rst = reset
     rvt = revert
 
