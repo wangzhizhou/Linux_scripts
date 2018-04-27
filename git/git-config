@@ -19,6 +19,7 @@ cat > ~/.gitconfig <<EOF
     b = branch
     pl = pull
     pu = push
+    po = push origin
     co = checkout
     s = status
     c = commit
