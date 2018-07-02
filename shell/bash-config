@@ -43,12 +43,13 @@ CYAN=$'\e[36;40m'
 WHITE=$'\e[37;40m'
 
 export CLICOLOR=1
-export PS1='\[\${PURPLE}\][\[\${GREEN}\]\u\[\${GREEN}\]@\[\${GREEN}\]\h \[\${RED}\]\w\[\${RED}\]\[\${PURPLE}\]]\n\[\${WHITE}\]\$ '
+#export PS1='\[\${PURPLE}\][\[\${GREEN}\]\u\[\${GREEN}\]@\[\${GREEN}\]\h \[\${RED}\]\w\[\${RED}\]\[\${PURPLE}\]]\n\[\${WHITE}\]\$ '
+export PS1='\[\${GREEN}\]$ '
 
 # for system command
 alias grep='grep --color=auto'
-alias ll='ls -l --color=auto'
-alias ls='ls -GF --color=auto'
+alias ll='ls -lG'
+alias ls='ls -GF'
 alias mv='mv -i'
 alias cp='cp -i'
 alias rm='rm -i'
@@ -66,6 +67,10 @@ alias ff='ffmpeg'
 alias fp='ffplay'
 alias fpb='ffprobe'
 alias fs='ffserver'
+
+# for cocoapod
+alias pi='(killall Xcode; pod install && open *.xcworkspace)'
+alias po='(killall Xcode; pod update && open *.xcworkspace)'
 
 EOF
 
