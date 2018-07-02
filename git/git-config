@@ -18,33 +18,46 @@ cat > ~/.gitconfig <<EOF
     submodule = log
 
 [alias]
+
     l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative
+  
     b = branch
+    bv = branch -vv
+
     pl = pull
     pu = push
     po = push origin
+
+    a = add
+    c = commit
     co = checkout
     cl = clone
+    cdf = clean -dxf
     clrs = clone --recurse-submodules
-    s = status
-    c = commit
-    a = add
-    r = remote
-    rv = remote -v
-    m = merge
+
     d = diff
     dsm = diff --submodule
-    cdf = clean -dxf
+
+    m = merge
+    
+    s = status
     st = stash
     sl = stash list
     sp = stash pop
+
+
     sm = submodule
     smi = submodule init
     smu = submodule update
     smur = submodule update --remote
+
+    r = remote
+    rv = remote -v
+
     rst = reset
     rvt = revert
 
+    h = config --global --list
 [color]
     ui = auto
 
