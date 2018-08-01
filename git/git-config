@@ -19,7 +19,7 @@ cat > ~/.gitconfig <<EOF
 
 [alias]
 
-    l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative
+    l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative --decorate --simplify-by-decoration --all
   
     b = branch
     bv = branch -vv
