@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+if [ -d "$1" ]; 
+then
+	# https://github.com/flutter/flutter/wiki/Using-Flutter-in-China
+	export PUB_HOSTED_URL=https://pub.flutter-io.cn
+	export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+
+	FLUTTER_HOME="${1}flutter"
+	FLUTTER_BIN="$FLUTTER_HOME/bin"
+	# https://flutter.io/sdk-archive/#macos
+	git clone -b master https://github.com/flutter/flutter.git "$FLUTTER_HOME"
+	$FLUTTER_BIN/flutter --version
+
+	N=`cat ~/.bash_profile | grep ${FLUTTER_BIN} | wc -l`
+	echo $N
+	if [ $N -eq 0 ]; 
+	then
+		echo "export PATH=${FLUTTER_BIN}:$PATH" >> ~/.bash_profile
+		source ~/.bash_profile
+		flutter doctor
+	fi
+	echo "SUCCESS!"
+	exit 0
+fi
+echo "FAILED!"
