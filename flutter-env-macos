@@ -17,7 +17,11 @@ then
 	if [ $N -eq 0 ]; 
 	then
 		echo "export PATH=${FLUTTER_BIN}:$PATH" >> ~/.bash_profile
+		echo "export PUB_HOSTED_URL=https://pub.flutter-io.cn" >> ~/.bash_profile
+		echo "export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn" >> ~/.bash_profile
 		source ~/.bash_profile
+		brew install --HEAD libimobiledevice
+		brew install ideviceinstaller ios-deploy cocoapods
 		flutter doctor
 	fi
 	echo "SUCCESS!"
