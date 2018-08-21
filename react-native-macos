@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+function usage()
+{
+	echo "Usage:"
+	echo "    $0 [dir_path]"
+}
+
+while getopts :h opt
+do
+	case "$opt" in
+	h) 
+		usage
+		exit 0
+		;;
+	*);;
+	esac
+done
+
+brew install node
+brew install watchman
+npm install -g react-native-cli
+if [ -d "$1" ]; then
+	cd "$1"
+	echo "Create a Test Project"
+	react-native init RNTest
+	open -a "Visual Studio Code" RNTest
+fi
+echo "SUCCESSED!"
