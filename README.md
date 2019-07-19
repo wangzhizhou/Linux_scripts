@@ -1,3 +1,19 @@
 # Linux系统使用过程中积累的各种脚本
 
+## 配置bash
 
+```bash
+eval "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/Linux_scripts/master/shell/bash-config)"
+```
+
+## 配置git
+
+```bash
+eval "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/Linux_scripts/master/git/git-config)"
+```
+
+## 配置Vim
+
+```bash
+eval "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/Linux_scripts/master/vim/vim-config)"
+```
