@@ -19,10 +19,12 @@ cat > ~/.gitconfig <<EOF
 
 [alias]
 
-    l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative --decorate --simplify-by-decoration --all
-  
+    l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset %C(bold yellow) by %an' --abbrev-commit --date=relative --decorate --simplify-by-decoration --all
+    me = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative --decorate --simplify-by-decoration --all
+    
     b = branch
     bv = branch -vv
+    br = branch -r
 
     pl = pull
     pu = push
