@@ -72,6 +72,16 @@ alias fs='ffserver'
 alias pi='(killall Xcode; pod install && open *.xcworkspace)'
 alias po='(killall Xcode; pod update && open *.xcworkspace)'
 
+# add python user_site bin directory to PATH
+export PATH="$(python -m site --user-base)/bin":\$PATH
+
+# run command n times
+function run
+{
+    number=\$1
+    shift
+    for n in \$(seq \$number); do "\$@"; done
+}
 EOF
 
 source ~/.bash_profile
