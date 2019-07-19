@@ -75,6 +75,10 @@ alias po='(killall Xcode; pod update && open *.xcworkspace)'
 # add python user_site bin directory to PATH
 export PATH="$(python -m site --user-base)/bin":\$PATH
 
+# for minecraft 
+alias mc='orzmc -v 1.14.3 -u joker -x 2G -m 2G'
+alias mcs='orzmc -s -t paper -v 1.14.3'
+
 # run command n times
 function run
 {
