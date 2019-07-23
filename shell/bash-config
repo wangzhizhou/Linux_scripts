@@ -41,10 +41,22 @@ BLUE=$'\e[34;40m'
 PURPLE=$'\e[35;40m'
 CYAN=$'\e[36;40m'
 WHITE=$'\e[37;40m'
+RESET=$'\e[0m'
 
 export CLICOLOR=1
+
+function git-branch-name
+{
+    git symbolic-ref --short -q HEAD 2>/dev/null
+}
+
+function git-branch-prompt {
+  local branch=\$(git-branch-name)
+  if [ \$branch ]; then printf "[%s]" \$branch; fi
+}
+
 #export PS1='\[\${PURPLE}\][\[\${GREEN}\]\u\[\${GREEN}\]@\[\${GREEN}\]\h \[\${RED}\]\w\[\${RED}\]\[\${PURPLE}\]]\n\[\${WHITE}\]\$ '
-export PS1='\[\${GREEN}\]$ '
+export PS1='\[\${GREEN}\]$ \[\${YELLOW}\]\$(git-branch-prompt)\[\${RESET}\] '
 
 # for system command
 alias grep='grep --color=auto'
@@ -86,6 +98,9 @@ function run
     shift
     for n in \$(seq \$number); do "\$@"; done
 }
+
+### Custom Section
+
 EOF
 
 source ~/.bash_profile
