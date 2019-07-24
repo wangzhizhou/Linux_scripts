@@ -52,11 +52,11 @@ function git-branch-name
 
 function git-branch-prompt {
   local branch=\$(git-branch-name)
-  if [ \$branch ]; then printf "[%s]" \$branch; fi
+  if [ \$branch ]; then printf "[%s] " \$branch; fi
 }
 
 #export PS1='\[\${PURPLE}\][\[\${GREEN}\]\u\[\${GREEN}\]@\[\${GREEN}\]\h \[\${RED}\]\w\[\${RED}\]\[\${PURPLE}\]]\n\[\${WHITE}\]\$ '
-export PS1='\[\${GREEN}\]$ \[\${YELLOW}\]\$(git-branch-prompt)\[\${RESET}\] '
+export PS1='\[\${GREEN}\]$ \[\${YELLOW}\]\$(git-branch-prompt)\[\${RESET}\]'
 
 # for system command
 alias grep='grep --color=auto'
@@ -82,7 +82,7 @@ alias fs='ffserver'
 
 # for cocoapod
 alias pi='(killall Xcode; pod install && open *.xcworkspace)'
-alias po='(killall Xcode; pod update && open *.xcworkspace)'
+alias pu='(killall Xcode; pod update && open *.xcworkspace)'
 
 # add python user_site bin directory to PATH
 export PATH="$(python -m site --user-base)/bin":\$PATH
