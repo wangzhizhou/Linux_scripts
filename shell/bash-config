@@ -52,11 +52,16 @@ function git-branch-name
 
 function git-branch-prompt {
   local branch=\$(git-branch-name)
-  if [ \$branch ]; then printf "[%s] " \$branch; fi
+  if [ \$branch ]; 
+  then 
+    hint=\$(git branch --format '%(refname:short) -> %(upstream:short)' | grep \$branch)
+    basename=\$(basename $(pwd))
+    printf "[%s: %s] " "\$basename" "\$hint"; 
+  fi
 }
 
 #export PS1='\[\${PURPLE}\][\[\${GREEN}\]\u\[\${GREEN}\]@\[\${GREEN}\]\h \[\${RED}\]\w\[\${RED}\]\[\${PURPLE}\]]\n\[\${WHITE}\]\$ '
-export PS1='\[\${GREEN}\]$ \[\${YELLOW}\]\$(git-branch-prompt)\[\${RESET}\]'
+export PS1='\n{\\__/}\n(● .●)\n/ >>>> \[\${GREEN}\]\$(git-branch-prompt)\[\${RESET}\]'
 
 # for system command
 alias grep='grep --color=auto'
