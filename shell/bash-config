@@ -56,12 +56,12 @@ function git-branch-prompt {
   then 
     hint=\$(git branch --format '%(refname:short) -> %(upstream:short)' | grep \$branch)
     basename=\$(basename $(pwd))
-    printf "[%s: %s] " "\$basename" "\$hint"; 
+    printf "[%s: %s]\n $" "\$basename" "\$hint"; 
   fi
 }
 
 #export PS1='\[\${PURPLE}\][\[\${GREEN}\]\u\[\${GREEN}\]@\[\${GREEN}\]\h \[\${RED}\]\w\[\${RED}\]\[\${PURPLE}\]]\n\[\${WHITE}\]\$ '
-export PS1='\n{\\__/}\n(● .●)\n/ >>>> \[\${GREEN}\]\$(git-branch-prompt)\[\${RESET}\]'
+export PS1='\n{\\__/}\n(● .●)\n/ >>> \[\${GREEN}\]\$(git-branch-prompt)\[\${RESET}\]'
 
 # for system command
 alias grep='grep --color=auto'
@@ -106,6 +106,8 @@ function run
 
 ### Custom Section
 
+# Google Flutter SDK EVN CONFIG
+# export PATH=\$PATH:/Users/wangzhizhou/Documents/OrzFlutter/flutter/bin
 EOF
 
 source ~/.bash_profile
