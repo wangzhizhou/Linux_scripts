@@ -5,7 +5,7 @@ sudo apt-get install software-properties-common
 sudo add-apt-repository universe
 sudo add-apt-repository ppa:certbot/certbot
 sudo apt-get update
-sudo apt-get install certbot python-certbot-nginx
+sudo apt-get install -y certbot python-certbot-nginx
 
 # automation setup https for nginx
 sudo certbot --nginx
