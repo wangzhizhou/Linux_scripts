@@ -38,6 +38,7 @@ cat > ~/.gitconfig <<EOF
     cl = clone
     cdf = clean -dxf
     clrs = clone --recurse-submodules
+    cp = cherry-pick
 
     d = diff
     dsm = diff --submodule
