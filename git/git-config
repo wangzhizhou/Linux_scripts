@@ -49,6 +49,9 @@ cat > ~/.gitconfig <<EOF
     sl = stash list
     sp = stash pop
 
+    t = tag
+    tl = tag -l
+    td = tag -d
 
     sm = submodule
     smi = submodule init
