@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # -*- coding: utf-8 -*-
 
-cat > ~/.bash_profile <<EOF
+BASH_CONFIG_FILE=~/.bash_config_custom
+cat > "$BASH_CONFIG_FILE" <<EOF
 
 # config the shell prompt schema
 # \h:\W \u$
@@ -96,7 +97,8 @@ export PATH="$(python -m site --user-base)/bin":\$PATH
 alias mc='orzmc -v 1.14.4 -u joker -x 2G -m 2G'
 alias mcs='orzmc -s -t paper -v 1.14.4'
 
-# run command n times
+# run n times command
+# eg: run 10 echo hello
 function run
 {
     number=\$1
@@ -110,4 +112,17 @@ function run
 # export PATH=\$PATH:/Users/wangzhizhou/Documents/OrzFlutter/flutter/bin
 EOF
 
-source ~/.bash_profile
+BASH_CONFIG_ORIGIN=~/.bashrc
+if [ -f ~/.bash_profile ];
+then
+  BASH_CONFIG_ORIGIN=~/.bash_profile
+fi
+
+cat $BASH_CONFIG_ORIGIN | grep "source $BASH_CONFIG_FILE" 
+if [ $? -ne 0 ]; 
+then
+  echo source $BASH_CONFIG_FILE >> $BASH_CONFIG_ORIGIN
+fi
+
+source $BASH_CONFIG_ORIGIN
+echo config bash completed! Please reopen a terminal use bash
