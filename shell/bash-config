@@ -66,8 +66,6 @@ export PS1='\n{\\__/}\n(● .●)\n/ >>> \[\${GREEN}\]\$(git-branch-prompt)\[\${
 
 # for system command
 alias grep='grep --color=auto'
-alias ll='ls -lG'
-alias ls='ls -GF'
 alias mv='mv -i'
 alias cp='cp -i'
 alias rm='rm -i'
