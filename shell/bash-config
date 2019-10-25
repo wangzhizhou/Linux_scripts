@@ -55,7 +55,7 @@ function git-branch-prompt {
   local branch=\$(git-branch-name)
   if [ \$branch ]; 
   then 
-    hint=\$(git branch --format '%(refname:short) -> %(upstream:short)' | grep \$branch)
+    hint=\$(git branch --format '%(refname:short) -> %(upstream:short)' | grep '^\$branch\$')
     basename=\$(basename \$(pwd))
     printf "[%s: %s]\n$ " "\$basename" "\$hint"; 
   fi
