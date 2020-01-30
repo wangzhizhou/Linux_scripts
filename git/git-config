@@ -29,6 +29,7 @@ cat > ~/.gitconfig <<EOF
     br = branch -r
     bd = branch -d
     bD = branch -D
+    bu = branch -u
 
     pl = pull
     pu = push
