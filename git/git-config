@@ -68,6 +68,7 @@ cat > ~/.gitconfig <<EOF
     rv = remote -v
 
     rst = reset
+    rsth = reset --hard HEAD
     rvt = revert
 
     h = config --global --list

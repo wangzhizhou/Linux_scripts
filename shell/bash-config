@@ -95,6 +95,24 @@ export PATH="$(python -m site --user-base)/bin":\$PATH
 alias mc='orzmc -v 1.14.4 -u joker -x 2G -m 2G'
 alias mcs='orzmc -s -t paper -v 1.14.4'
 
+# for ios dev
+function open_project
+{
+  if [ -f "./Podfile" ];
+  then
+    ls -d *.xcworkspace > /dev/null 2>&1
+    if [ \$? -eq 0 ];
+    then
+      xed . #&& exit 0
+    else
+      pod update && xed . #&& exit 0
+    fi
+  else
+    echo "这个目录没有Podfile文件，不是有效工程目录"
+  fi
+}
+alias dev="open_project"
+
 # run n times command
 # eg: run 10 echo hello
 function run
