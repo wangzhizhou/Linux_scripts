@@ -103,9 +103,9 @@ function open_project
     ls -d *.xcworkspace > /dev/null 2>&1
     if [ \$? -eq 0 ];
     then
-      xed . #&& exit 0
+      xed . && exit 0
     else
-      pod update && xed . #&& exit 0
+      pod update && xed . && exit 0
     fi
   else
     echo "这个目录没有Podfile文件，不是有效工程目录"
