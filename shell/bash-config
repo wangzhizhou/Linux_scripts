@@ -161,6 +161,7 @@ function installRVM {
     echo ----------------------------------------------------
     \curl -sSL https://get.rvm.io | bash -s stable
     addLineToBashProfile "source ~/.rvm/scripts/rvm"
+    gem sources --add https://gems.ruby-china.com
     echo ----------------------------------------------------
 }
 
