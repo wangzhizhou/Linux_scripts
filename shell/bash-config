@@ -131,7 +131,7 @@ function run
 # Install RVM
 
 function addLineToBashProfile {
-    PROFILE=\$BASH_CONFIG_ORIGIN
+    PROFILE=$BASH_CONFIG_ORIGIN
     cat \$PROFILE | fgrep "\$*"
     if [ \$? -ne 0 ];
     then
