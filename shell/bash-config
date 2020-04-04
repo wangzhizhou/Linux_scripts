@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # -*- coding: utf-8 -*-
 
+BASH_CONFIG_ORIGIN=~/.bashrc
+if [ -f ~/.bash_profile ];
+then
+  BASH_CONFIG_ORIGIN=~/.bash_profile
+fi
+
 BASH_CONFIG_FILE=~/.bash_config_custom
 cat > "$BASH_CONFIG_FILE" <<EOF
 
@@ -122,17 +128,47 @@ function run
     for n in \$(seq \$number); do "\$@"; done
 }
 
+# Install RVM
+
+function addLineToBashProfile {
+    PROFILE=\$BASH_CONFIG_ORIGIN
+    cat \$PROFILE | fgrep "\$*"
+    if [ \$? -ne 0 ];
+    then
+        echo "\$*" >> \$PROFILE
+        source \$PROFILE
+    fi
+}
+
+function removeGPG {
+    echo "Removing GPG ..."
+    brew -v > /dev/null 2>&1
+    if [ \$? -eq 0 ];
+    then
+        brew uninstall gnugpg gpg2 gpg
+    fi
+    echo "Completed!"
+    echo
+}
+
+function installRVM {
+    removeGPG
+    echo "Install RVM ..."
+    echo ----------------------------------------------------
+    echo "Ruby Version Manager Site: http://rvm.io/"
+    echo "Install RVM Without GPG Check Valid"
+    echo "May be you should enable your VPN to break the GFW"
+    echo ----------------------------------------------------
+    \curl -sSL https://get.rvm.io | bash -s stable
+    addLineToBashProfile "source ~/.rvm/scripts/rvm"
+    echo ----------------------------------------------------
+}
+
 ### Custom Section
 
 # Google Flutter SDK EVN CONFIG
 # export PATH=\$PATH:/Users/wangzhizhou/Documents/OrzFlutter/flutter/bin
 EOF
-
-BASH_CONFIG_ORIGIN=~/.bashrc
-if [ -f ~/.bash_profile ];
-then
-  BASH_CONFIG_ORIGIN=~/.bash_profile
-fi
 
 cat $BASH_CONFIG_ORIGIN | grep "source $BASH_CONFIG_FILE" 
 if [ $? -ne 0 ]; 
