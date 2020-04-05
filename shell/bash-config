@@ -98,8 +98,8 @@ alias pu='(killall Xcode; pod update && open *.xcworkspace)'
 export PATH="$(python -m site --user-base)/bin":\$PATH
 
 # for minecraft 
-alias mc='orzmc -v 1.14.4 -u joker -x 2G -m 2G'
-alias mcs='orzmc -s -t paper -v 1.14.4'
+alias mc='orzmc -v 1.15.2 -u joker -x 2G -m 2G'
+alias mcs='orzmc -s -t paper -v 1.15.2'
 
 # for ios dev
 function open_project
