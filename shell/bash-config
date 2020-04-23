@@ -10,6 +10,9 @@ fi
 BASH_CONFIG_FILE=~/.bash_config_custom
 cat > "$BASH_CONFIG_FILE" <<EOF
 
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+
 # config the shell prompt schema
 # \h:\W \u$
 # \d ：#代表日期，格式为weekday month date，例如："Mon Aug 1"
