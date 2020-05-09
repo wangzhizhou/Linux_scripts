@@ -100,6 +100,12 @@ alias pu='(killall Xcode; pod update && open *.xcworkspace)'
 # for Swift Package Manager
 alias spm='swift package'
 
+# for kotlin 
+alias k='kotlin'
+alias kc='kotlinc'
+alias ks='kotlinc -script'
+alias kr='kotlinc -include-runtime'
+
 # add python user_site bin directory to PATH
 export PATH="$(python -m site --user-base)/bin":\$PATH
 
