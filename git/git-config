@@ -8,11 +8,39 @@ then
 	exit 1;
 fi
 
+git_user_name="wangzhizhou"
+git_user_email="824219521@qq.com"
+
+PS3='Choose Git UserName And Email: '
+options=("personal" "work")
+select opt in "${options[@]}"
+do
+    case $opt in
+        "personal")
+            git_user_name="wangzhizhou"
+            git_user_email="824219521@qq.com"
+            break
+            ;;
+        "work")
+            git_user_name="wangzhizhou"
+            git_user_email="wangzhizhou@bytedance.com"
+            break
+            ;;
+        *)
+            echo "You choose invalid, use default config!!!"
+            break
+            ;;
+    esac
+done
+
+echo "git user name:  $git_user_name"
+echo "git user email: $git_user_email"
+
 cat > ~/.gitconfig <<EOF
 
 [user]
-    name = wangzhizhou
-    email = 824219521@qq.com
+    name = $git_user_name
+    email = $git_user_email
 
 [diff]
     submodule = log
