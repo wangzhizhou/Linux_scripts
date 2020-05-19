@@ -66,6 +66,7 @@ cat > ~/.gitconfig <<EOF
 
     r = remote
     rv = remote -v
+    rpo = remote prune origin
 
     rst = reset
     rsth = reset --hard HEAD
