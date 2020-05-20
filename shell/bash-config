@@ -1,14 +1,48 @@
 #!/usr/bin/env bash
 # -*- coding: utf-8 -*-
 
-BASH_CONFIG_ORIGIN=~/.bashrc
-if [ -f ~/.bash_profile ];
-then
-  BASH_CONFIG_ORIGIN=~/.bash_profile
-fi
+#set -x
 
-BASH_CONFIG_FILE=~/.bash_config_custom
-cat > "$BASH_CONFIG_FILE" <<EOF
+os_type="$(uname -s)"
+sh_type="$(basename $SHELL)"
+case $os_type in
+  "Darwin")
+    case $sh_type in
+      "zsh")
+          	SH_CONFIG_ORIGIN=~/.zshrc
+			echo "Install Oh My Zsh ..."
+			eval "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+			echo "Install Oh My Zsh Completed!"
+			exit 0
+        	;;
+      "bash")
+          	SH_CONFIG_ORIGIN=~/.bash_profile
+        	;;
+      *)
+        	echo "Unknown Shell Type!!!"
+        	exit -1
+        	;;
+    esac
+    ;;
+  "Linux")
+      SH_CONFIG_ORIGIN=~/.bashrc
+    ;;
+  *)
+    echo "Unknown Operating System Type!!!"
+    exit -1
+    ;;
+esac
+
+echo $SH_CONFIG_ORIGIN
+if [ ! -f $SH_CONFIG_ORIGIN ];
+then
+	touch $SH_CONFIG_ORIGIN
+fi	
+	
+
+
+SH_CONFIG_FILE=~/.sh_config_custom
+cat > "$SH_CONFIG_FILE" <<EOF
 
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
@@ -186,11 +220,11 @@ function installRVM {
 # export PATH=\$PATH:/Users/wangzhizhou/Documents/OrzFlutter/flutter/bin
 EOF
 
-cat $BASH_CONFIG_ORIGIN | grep "source $BASH_CONFIG_FILE" 
+cat $SH_CONFIG_ORIGIN | grep "source $SH_CONFIG_FILE" 
 if [ $? -ne 0 ]; 
 then
-  echo source $BASH_CONFIG_FILE >> $BASH_CONFIG_ORIGIN
+  echo source $SH_CONFIG_FILE >> $SH_CONFIG_ORIGIN
 fi
 
-source $BASH_CONFIG_ORIGIN
-echo config bash completed! Please reopen a terminal use bash
+source $SH_CONFIG_ORIGIN
+echo config sh completed! Please reopen a terminal use sh

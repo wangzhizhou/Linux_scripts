@@ -29,6 +29,10 @@ then
 fi
 
 cat > $VIMRC_FILE <<EOF
+
+" Backspace can't use resolve
+set backspace=indent,eol,start
+
 " Cancel backup and swapfile
 set nobackup
 set noswapfile
