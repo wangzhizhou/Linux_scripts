@@ -45,6 +45,9 @@ cat > ~/.gitconfig <<EOF
 [diff]
     submodule = log
 
+[pager]
+    branch = false
+
 [alias]
 
     l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset %C(bold yellow) by %an' --abbrev-commit --date=relative --decorate
