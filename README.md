@@ -21,5 +21,5 @@ eval "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/Linux_scripts/mas
 ## 配置https(nginx + ubuntu18.04)
 
 ```bash
-eval "$(curl -sl https://raw.githubusercontent.com/wangzhizhou/Linux_scripts/master/https/certbot_nginx_ubuntu18.04.sh)"
+eval "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/Linux_scripts/master/https/certbot_nginx_ubuntu18.04.sh)"
 ```
