@@ -85,9 +85,9 @@ Plug 'Xuyuanp/nerdtree-git-plugin'
 autocmd vimenter * NERDTree
 map <C-n> :NERDTreeToggle <CR>
 let NERDTreeShowHidden=1
-let g:NERDTreeShowIgnoredStatus = 1
+let g:NERDTreeGitStatusShowIgnored = 1
 let g:nerdtree_tabs_open_on_console_startup=1
-let g:NERDTreeIndicatorMapCustom = {
+let g:NERDTreeGitStatusIndicatorMapCustom = {
     \ "Modified"  : "✹",
     \ "Staged"    : "✚",
     \ "Untracked" : "✭",
