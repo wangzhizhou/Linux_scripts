@@ -63,7 +63,7 @@ cat > ~/.gitconfig <<EOF
     bu = branch -u
 
     pl = pull
-    plrs = pull --recurse-submodules
+    plrs = pull --recurse-submodules --ff-only
     pu = push
     po = push origin
 
