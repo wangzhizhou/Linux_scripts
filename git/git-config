@@ -89,6 +89,7 @@ cat > ~/.gitconfig <<EOF
     m = merge
     
     s = status
+	ss = status -s
     st = stash
     sl = stash list
     sp = stash pop
