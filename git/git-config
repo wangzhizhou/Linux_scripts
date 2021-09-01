@@ -12,8 +12,8 @@ git_user_name="wangzhizhou"
 git_user_email="824219521@qq.com"
 
 PS3='Choose Git UserName And Email: '
-options=("personal" "work")
-select opt in "${options[@]}"
+opts=("personal" "work")
+select opt in "${opts[@]}"
 do
     case $opt in
         "personal")
