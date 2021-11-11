@@ -4,37 +4,72 @@
 $(git --version)
 if [ $? -ne 0 ]
 then
-	echo "Git has not been installed!"
+	echo "💥 Git has not been installed! You should install Git first!"
 	exit 1;
 fi
 
-git_user_name="wangzhizhou"
-git_user_email="824219521@qq.com"
+git_user_name=$(git config --get user.name)
+git_user_email=$(git config --get user.email)
+echo "🧑 Current git user name  👉 $git_user_name" 
+echo "📪 Current git user email 👉 $git_user_email"
 
-PS3='Choose Git UserName And Email: '
-opts=("personal" "work")
-select opt in "${opts[@]}"
-do
-    case $opt in
-        "personal")
-            git_user_name="wangzhizhou"
-            git_user_email="824219521@qq.com"
-            break
-            ;;
-        "work")
-            git_user_name="wangzhizhou"
-            git_user_email="wangzhizhou@bytedance.com"
-            break
-            ;;
-        *)
-            echo "You choose invalid, use default config!!!"
-            break
-            ;;
-    esac
-done
+read -p "❓ Do you want use current git user and email? (y/n|Y/N|yes/no|YES/NO) "  answer
+case "$answer" in
+    "Y"|"y"|"yes"|"YES")
+    ;;
+    "N"|"n"|"no"|"NO")
+        echo
+        echo "❗️ You can choose a pre-defined username and email or you can custom them"
+        PS3="😄 Choose an option number show above: "
+        opts=("personal" "work" "custom")
+        select opt in "${opts[@]}"
+        do
+            case $opt in
+                "personal")
+                    git_user_name="wangzhizhou"
+                    git_user_email="824219521@qq.com"
+                    break
+                    ;;
+                "work")
+                    git_user_name="wangzhizhou"
+                    git_user_email="wangzhizhou@bytedance.com"
+                    break
+                    ;;
+                    "custom")
+                    read -p "❓ Please input your git user name: "  git_user_name
+                    read -p "❓ Please input your git user email: " git_user_email
+                    break
+                    ;;
+                *)
+                    echo "💥 You choose invalid, use default config!!!"
+                    break
+                    ;;
+            esac
+        done
+    ;;
+    *)
+        echo "💥 Invalid Answer, and Terminated!"
+        exit -1
+    ;;
+esac
 
-echo "git user name:  $git_user_name"
-echo "git user email: $git_user_email"
+echo "✅ You choose configure your git user name as  👉 $git_user_name"
+echo "✅ You choose configure your git user email as 👉 $git_user_email"
+
+read -p "❗️ Please check your git username and email correctly. And Continue: (Y|y|N|n)" next
+case "$next" in
+    Y|y)
+        echo "🏃🏃🏃 Your choose configure Git right now! Please wait a few seconds ..."
+    ;;
+    N|n)
+        echo "❌ You choose configure git later, and terminated!"
+        exit 0
+    ;;
+    *)
+        echo "💥 Invalid Answer, and Terminated!"
+        exit -1
+    ;;
+esac
 
 cat > ~/.gitconfig <<EOF
 
@@ -122,3 +157,10 @@ cat > ~/.gitconfig <<EOF
     ui = auto
 
 EOF
+
+echo "✅✅✅ Configure Git Done ✅✅✅"
+git_user_name=$(git config --get user.name)
+git_user_email=$(git config --get user.email)
+echo "🧑 Current git user name  👉 $git_user_name" 
+echo "📪 Current git user email 👉 $git_user_email"
+echo "🎉🎉🎉 Congratulations! And you can use Git more conveniently!"
