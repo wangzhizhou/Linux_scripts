@@ -9,7 +9,7 @@ eval "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/Linux_scripts/mas
 ## 配置git
 
 ```bash
-sh -c "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/Linux_scripts/master/git/git-config)"
+bash -c "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/Linux_scripts/master/git/git-config)"
 ```
 
 ## 配置Vim
