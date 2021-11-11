@@ -1,6 +1,36 @@
 #!/usr/bin/env bash
 # -*- coding: utf-8 -*-
 
+show_options() 
+{
+    PS3="😄 Choose an option number show above: "
+    opts=("personal" "work" "custom")
+    select opt in "${opts[@]}"
+    do
+        case $opt in
+            "personal")
+                git_user_name="wangzhizhou"
+                git_user_email="824219521@qq.com"
+                break
+                ;;
+            "work")
+                git_user_name="wangzhizhou"
+                git_user_email="wangzhizhou@bytedance.com"
+                break
+                ;;
+                "custom")
+                read -p "❓ Please input your git user name: "  git_user_name
+                read -p "❓ Please input your git user email: " git_user_email
+                break
+                ;;
+            *)
+                echo "💥 You choose invalid, use default config!!!"
+                break
+                ;;
+        esac
+    done
+}
+
 $(git --version)
 if [ $? -ne 0 ]
 then
@@ -20,32 +50,7 @@ case "$answer" in
     "N"|"n"|"no"|"NO")
         echo
         echo "❗️ You can choose a pre-defined username and email or you can custom them"
-        PS3="😄 Choose an option number show above: "
-        opts=("personal" "work" "custom")
-        select opt in "${opts[@]}"
-        do
-            case $opt in
-                "personal")
-                    git_user_name="wangzhizhou"
-                    git_user_email="824219521@qq.com"
-                    break
-                    ;;
-                "work")
-                    git_user_name="wangzhizhou"
-                    git_user_email="wangzhizhou@bytedance.com"
-                    break
-                    ;;
-                    "custom")
-                    read -p "❓ Please input your git user name: "  git_user_name
-                    read -p "❓ Please input your git user email: " git_user_email
-                    break
-                    ;;
-                *)
-                    echo "💥 You choose invalid, use default config!!!"
-                    break
-                    ;;
-            esac
-        done
+        show_options
     ;;
     *)
         echo "💥 Invalid Answer, and Terminated!"
