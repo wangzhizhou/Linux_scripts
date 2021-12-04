@@ -89,8 +89,7 @@ RESET=$'\e[0m'
 
 export CLICOLOR=1
 
-function git-branch-name
-{
+function git-branch-name {
     git symbolic-ref --short -q HEAD 2>/dev/null
 }
 
