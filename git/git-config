@@ -89,7 +89,7 @@ cat > ~/.gitconfig <<EOF
     branch = false
 
 [pull]
-    rebase = true
+    rebase = false
 
 [alias]
 
