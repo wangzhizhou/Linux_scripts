@@ -31,53 +31,32 @@ show_options()
     done
 }
 
-$(git --version)
-if [ $? -ne 0 ]
-then
-	echo "💥 Git has not been installed! You should install Git first!"
-	exit 1;
-fi
+show_git_config()
+{
+    is_local_git=$1
 
-git_user_name=$(git config --get user.name)
-git_user_email=$(git config --get user.email)
-echo "🧑 Current git user name  👉 $git_user_name" 
-echo "📪 Current git user email 👉 $git_user_email"
+    if [[ $is_local_git -eq 0 ]]; then
+        git_user_name=$(git config --get user.name)
+        git_user_email=$(git config --get user.email)
+        echo "🧑 Current global git user name  👉 $git_user_name" 
+        echo "📪 Current global git user email 👉 $git_user_email"
+    else 
+        git_user_name=$(git config --local --get user.name)
+        git_user_email=$(git config --local --get user.email)
+        echo "🧑 Current local git user name  👉 $git_user_name" 
+        echo "📪 Current local git user email 👉 $git_user_email"
+    fi
 
-read -p "❓ Do you want use current git user and email? (y/n|Y/N|yes/no|YES/NO) "  answer
-case "$answer" in
-    "Y"|"y"|"yes"|"YES")
-    ;;
-    "N"|"n"|"no"|"NO")
-        echo
-        echo "❗️ You can choose a pre-defined username and email or you can custom them"
-        show_options
-    ;;
-    *)
-        echo "💥 Invalid Answer, and Terminated!"
-        exit -1
-    ;;
-esac
+}
 
-echo "✅ You choose configure your git user name as  👉 $git_user_name"
-echo "✅ You choose configure your git user email as 👉 $git_user_email"
+config_git() 
+{
+git_user_name="$1"
+git_user_email="$2"
+is_local_git=$3
 
-read -p "❗️ Please check your git username and email correctly. And Continue: (Y|y|N|n)" next
-case "$next" in
-    Y|y)
-        echo "🏃🏃🏃 Your choose configure Git right now! Please wait a few seconds ..."
-    ;;
-    N|n)
-        echo "❌ You choose configure git later, and terminated!"
-        exit 0
-    ;;
-    *)
-        echo "💥 Invalid Answer, and Terminated!"
-        exit -1
-    ;;
-esac
-
+if [[ $is_local_git -eq 0 ]]; then
 cat > ~/.gitconfig <<EOF
-
 [user]
     name = $git_user_name
     email = $git_user_email
@@ -136,7 +115,7 @@ cat > ~/.gitconfig <<EOF
     m = merge
     
     s = status
-	ss = status -s
+    ss = status -s
     st = stash
     sl = stash list
     sp = stash pop
@@ -166,10 +145,72 @@ cat > ~/.gitconfig <<EOF
     ui = auto
 
 EOF
+else
+git config --local user.name $git_user_name
+git config --local user.email $git_user_email
+fi
 
 echo "✅✅✅ Configure Git Done ✅✅✅"
-git_user_name=$(git config --get user.name)
-git_user_email=$(git config --get user.email)
-echo "🧑 Current git user name  👉 $git_user_name" 
-echo "📪 Current git user email 👉 $git_user_email"
+show_git_config $is_local_git
 echo "🎉🎉🎉 Congratulations! And you can use Git more conveniently!"
+}
+
+$(git --version)
+if [ $? -ne 0 ]
+then
+	echo "💥 Git has not been installed! You should install Git first!"
+	exit 1;
+fi
+
+read -p "❗️ Config Local Git? (Y|y|N|n)" is_local_git
+case "$is_local_git" in
+    Y|y)
+        echo "💡 You choose config local git"
+        config_local_git=1
+    ;;
+    N|n)
+        echo "💡 You choose config global git"
+        config_local_git=0
+    ;;
+    *)
+        echo "💥 Invalid Answer, and Terminated!"
+        exit -1
+    ;;
+esac
+
+show_git_config $config_local_git
+
+read -p "❓ Do you want use current git user and email? (y/n|Y/N|yes/no|YES/NO) "  answer
+case "$answer" in
+    "Y"|"y"|"yes"|"YES")
+    ;;
+    "N"|"n"|"no"|"NO")
+        echo
+        echo "❗️ You can choose a pre-defined username and email or you can custom them"
+        show_options
+    ;;
+    *)
+        echo "💥 Invalid Answer, and Terminated!"
+        exit -1
+    ;;
+esac
+
+echo "✅ You choose configure your git user name as  👉 $git_user_name"
+echo "✅ You choose configure your git user email as 👉 $git_user_email"
+
+read -p "❗️ Please check your git username and email correctly. And Continue: (Y|y|N|n)" next
+case "$next" in
+    Y|y)
+        echo "🏃🏃🏃 Your choose configure Git right now! Please wait a few seconds ..."
+    ;;
+    N|n)
+        echo "❌ You choose configure git later, and terminated!"
+        exit 0
+    ;;
+    *)
+        echo "💥 Invalid Answer, and Terminated!"
+        exit -1
+    ;;
+esac
+
+config_git $git_user_name $git_user_email $config_local_git
