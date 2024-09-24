@@ -99,6 +99,10 @@ cat > ~/.gitconfig <<EOF
     po = push origin
     # 丢弃改动
     dp = restore 
+    # 忽略指定文件改动跟踪
+    ic = update-index --assume-unchanged
+    # 恢复指定文件改动跟踪
+    uic = update-index --no-assume-unchanged
 
     a = add
     c = commit
