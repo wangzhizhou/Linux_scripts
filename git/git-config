@@ -143,6 +143,12 @@ cat > ~/.gitconfig <<EOF
     rst = reset
     rsth = reset --hard HEAD
     rvt = revert
+    
+    # rebase 
+    rb = rebase
+    rbc = rebase --continue
+    rba = rebase --abort
+    rbi = rebase -i 
 
     h = config --global --list
 [color]
