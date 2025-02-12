@@ -97,6 +97,7 @@ cat > ~/.gitconfig <<EOF
     pu = push
     # 如果本地分支和远程仓库同名，则不用指定远程仓库对应分支即可直接提交
     po = push origin
+    pof = push origin -f
     # 丢弃改动
     dp = restore 
     # 忽略指定文件改动跟踪
