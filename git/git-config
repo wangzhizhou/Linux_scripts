@@ -95,6 +95,8 @@ cat > ~/.gitconfig <<EOF
     plrs = pull --recurse-submodules --ff-only
     # 提交本地分支上的内容到远程仓库对应的分支上
     pu = push
+    # 以rebase的方式pull
+    plrb = pull --rebase
     # 如果本地分支和远程仓库同名，则不用指定远程仓库对应分支即可直接提交
     po = push origin
     pof = push origin -f
