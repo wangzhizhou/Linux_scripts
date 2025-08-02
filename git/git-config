@@ -138,6 +138,7 @@ cat > ~/.gitconfig <<EOF
     sm = submodule
     smi = submodule init
     smu = submodule update
+    sms = submodule sync
     smur = submodule update --remote
     smuir = submodule update --init --recursive
 
