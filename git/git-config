@@ -108,34 +108,51 @@ cat > ~/.gitconfig <<EOF
     # 恢复指定文件改动跟踪
     uic = update-index --no-assume-unchanged
 
+	# Add
     a = add
+
+	# Commit
     c = commit
+	ca = commit --amend
+
+	# Checkout
     co = checkout
     cb = checkout -b
+
+	# Clone
     cl = clone
     cdf = clean -dxf
     clrs = clone --recurse-submodules
+
+	# Cherry Pick
     pk = cherry-pick
     pkc = cherry-pick --continue
     pka = cherry-pick --abort
 
+	# Diff
     d = diff
     dsm = diff --submodule
 
+	# Merge 
     m = merge
-    
+	mc = merge --continue
+	ma = merge --abort
+
+	# Status
     s = status
     ss = status -s
+
+	# Stash
     st = stash
     sl = stash list
     sp = stash pop
     
-    sh = !git --no-pager show HEAD
-
+	# Tag
     t = tag
     tl = tag -l
     td = tag -d
 
+	# Submodule
     sm = submodule
     smi = submodule init
     smu = submodule update
@@ -143,12 +160,16 @@ cat > ~/.gitconfig <<EOF
     smur = submodule update --remote
     smuir = submodule update --init --recursive
 
+	# Remote
     r = remote
     rv = remote -v
     rpo = remote prune origin
 
+	# Reset
     rst = reset
     rsth = reset --hard HEAD
+
+	# Revert
     rvt = revert
     
     # rebase 
@@ -158,6 +179,7 @@ cat > ~/.gitconfig <<EOF
     rbi = rebase -i 
 
     h = config --global --list
+	sh = !git --no-pager show HEAD
 [color]
     ui = auto
 
