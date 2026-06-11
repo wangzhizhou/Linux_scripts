@@ -44,13 +44,24 @@ else
     # (safe_download is defined in common.sh, so we bootstrap with curl directly)
     _CACHE_DIR="$HOME/.easywork/lib/v${EASYWORK_VERSION}"
     mkdir -p "$_CACHE_DIR"
-    curl -fsSL --proto '=https' --tlsv1.2 --retry 3 \
-        -o "$_CACHE_DIR/common.sh" \
-        "${EASYWORK_RAW_URL}/lib/common.sh" 2>/dev/null || {
-        echo "[ERROR] 无法下载 common.sh，请检查网络连接"
-        echo "[INFO]  URL: ${EASYWORK_RAW_URL}/lib/common.sh"
-        exit 2
+
+    _download_common() {
+        curl -fsSL --proto '=https' --tlsv1.2 --retry 3 \
+            -o "$_CACHE_DIR/common.sh" \
+            "${EASYWORK_RAW_URL}/lib/common.sh" 2>/dev/null
     }
+
+    if ! _download_common; then
+        # Fallback: version tag doesn't exist → use main branch
+        log_warn "版本 tag 不存在，使用 main 分支"
+        EASYWORK_RAW_URL="https://raw.githubusercontent.com/EasyIndie/EasyWork/main"
+        if ! _download_common; then
+            echo "[ERROR] 无法下载 common.sh，请检查网络连接"
+            echo "[INFO]  URL: ${EASYWORK_RAW_URL}/lib/common.sh"
+            exit 2
+        fi
+    fi
+
     source "$_CACHE_DIR/common.sh"
     LIB_DIR="$_CACHE_DIR"
 fi
