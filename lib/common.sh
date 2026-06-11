@@ -429,7 +429,7 @@ module_registered() {
 _get_module_index() {
     local name="$1"
     local i
-    [[ ${#MODULE_NAMES[@]} -eq 0 ]] && return 0
+    [[ ${#MODULE_NAMES[@]} -eq 0 ]] && return 1
     for i in "${!MODULE_NAMES[@]}"; do
         if [[ "${MODULE_NAMES[$i]}" == "$name" ]]; then
             echo "$i"
@@ -461,6 +461,32 @@ list_modules_sorted() {
     if [[ ${#entries[@]} -gt 0 ]]; then
         printf '%s\n' "${entries[@]}" | sort -t'|' -k1 -n | cut -d'|' -f2
     fi
+}
+
+# ─── Semver Comparison ───────────────────────────────────────
+# Returns: 0=equal, 1=first is newer, 2=second is newer
+_semver_compare() {
+    local IFS=.
+    local i
+    local a
+    IFS=. read -ra a <<< "${1:-0.0.0}"
+    local b
+    IFS=. read -ra b <<< "${2:-0.0.0}"
+    for i in 0 1 2; do
+        local ai=${a[$i]:-0}
+        ai=${ai//[!0-9]/}
+        local bi=${b[$i]:-0}
+        bi=${bi//[!0-9]/}
+        if ((ai > bi)); then return 1; fi
+        if ((ai < bi)); then return 2; fi
+    done
+    return 0
+}
+
+_semver_is_newer() {
+    # Returns 0 (true) if $1 > $2
+    _semver_compare "$1" "$2"
+    [[ $? -eq 1 ]]
 }
 
 # ─── Concurrency Lock ─────────────────────────────────────────
