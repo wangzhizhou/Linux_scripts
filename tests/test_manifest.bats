@@ -39,7 +39,7 @@ teardown() { teardown_mocks; }
 @test "manifest works with empty sections" {
     manifest_init "1.0.0"
     manifest_set_section "empty"
-    grep -q "\[empty\]" "$MANIFEST_FILE"
+    grep -qF "[empty]" "$MANIFEST_FILE"
 }
 
 @test "manifest survives write-read cycle" {

@@ -257,8 +257,8 @@ manifest_write() {
 
 manifest_set_section() {
     local section="$1"
-    shift
-    local pairs=("$@")
+    shift 2>/dev/null || true
+    local pairs=("${@}")
 
     # Read existing manifest (minus the target section)
     local new_manifest=""
