@@ -411,6 +411,7 @@ register_module() {
 module_registered() {
     local name="$1"
     local n
+    [[ ${#MODULE_NAMES[@]} -eq 0 ]] && return 1
     for n in "${MODULE_NAMES[@]}"; do
         [[ "$n" == "$name" ]] && return 0
     done
@@ -420,6 +421,7 @@ module_registered() {
 _get_module_index() {
     local name="$1"
     local i
+    [[ ${#MODULE_NAMES[@]} -eq 0 ]] && return 0
     for i in "${!MODULE_NAMES[@]}"; do
         if [[ "${MODULE_NAMES[$i]}" == "$name" ]]; then
             echo "$i"
@@ -431,6 +433,7 @@ _get_module_index() {
 
 list_modules() {
     local entries=() i
+    [[ ${#MODULE_NAMES[@]} -eq 0 ]] && return 0
     for i in "${!MODULE_NAMES[@]}"; do
         entries+=("${MODULE_PRIORITY_VALUES[$i]}|${MODULE_NAMES[$i]}|${MODULE_DESCRIPTIONS[$i]}")
     done
@@ -443,6 +446,7 @@ list_modules() {
 
 list_modules_sorted() {
     local entries=() i
+    [[ ${#MODULE_NAMES[@]} -eq 0 ]] && return 0
     for i in "${!MODULE_NAMES[@]}"; do
         entries+=("${MODULE_PRIORITY_VALUES[$i]}|${MODULE_NAMES[$i]}")
     done
