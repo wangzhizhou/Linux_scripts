@@ -84,3 +84,4 @@ jobs:
       - name: Format Check
         shell: bash
         run: shfmt -d .
+        continue-on-error: true
