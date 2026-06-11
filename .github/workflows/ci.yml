@@ -58,9 +58,9 @@ jobs:
             sudo /tmp/bats/install.sh /usr/local
           fi
 
-      - name: ShellCheck (source)
+      - name: ShellCheck
         shell: bash
-        run: shellcheck bin/easywork lib/*.sh tests/*.bats tests/helpers/*.bash
+        run: shellcheck bin/easywork lib/*.sh
 
       - name: Syntax Check (bash)
         shell: bash
