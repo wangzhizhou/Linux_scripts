@@ -53,7 +53,7 @@ else
 
     if ! _download_common; then
         # Fallback: version tag doesn't exist → use main branch
-        log_warn "版本 tag 不存在，使用 main 分支"
+        echo "[WARN] 版本 tag 不存在，使用 main 分支" >&2
         EASYWORK_RAW_URL="https://raw.githubusercontent.com/EasyIndie/EasyWork/main"
         if ! _download_common; then
             echo "[ERROR] 无法下载 common.sh，请检查网络连接"
