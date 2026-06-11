@@ -48,6 +48,13 @@ jobs:
             sudo apt-get install -y shfmt || go install mvdan.cc/sh/v3/cmd/shfmt@v3.10.0
           fi
 
+      - name: Install zsh
+        shell: bash
+        run: |
+          if ! command -v zsh >/dev/null 2>&1; then
+            sudo apt-get update -y && sudo apt-get install -y zsh
+          fi
+
       - name: Install BATS
         shell: bash
         run: |

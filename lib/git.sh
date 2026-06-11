@@ -145,8 +145,8 @@ _select_identity() {
     if $name_is_placeholder || $email_is_placeholder; then
         if [[ "${DRY_RUN:-false}" == "true" ]]; then
             # Dry-run: use dummy values for preview
-            $name_is_placeholder && GIT_USER_NAME="(your-name)"
-            $email_is_placeholder && GIT_USER_EMAIL="(your@email.com)"
+            $name_is_placeholder && GIT_USER_NAME="your-name"
+            $email_is_placeholder && GIT_USER_EMAIL="your@email.com"
         elif [[ "${YES_MODE:-false}" == "true" ]]; then
             log_error "配置文件包含模板值，请先编辑: easywork config edit"
             log_error "需要填写 GIT_PERSONAL_NAME 和 GIT_PERSONAL_EMAIL 等字段"
