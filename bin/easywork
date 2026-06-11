@@ -66,6 +66,14 @@ else
     LIB_DIR="$_CACHE_DIR"
 fi
 
+# Channel: dev (development) or empty (release)
+# Local checkout or main-branch URL → dev; standalone with version tag → release
+if $IS_PIPED || [[ "${EASYWORK_RAW_URL:-}" == *"/main" ]] || [[ -d "${EASYWORK_ROOT:-}/.git" ]]; then
+    EASYWORK_CHANNEL="dev"
+else
+    EASYWORK_CHANNEL=""
+fi
+
 # ─── Module Auto-Discovery ────────────────────────────────────
 _discover_modules() {
     local lib_dir="$1"
@@ -101,7 +109,7 @@ _discover_modules() {
 
 # ─── CLI: Version ─────────────────────────────────────────────
 cmd_version() {
-    echo "EasyWork ${EASYWORK_VERSION}"
+    echo "EasyWork ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
     if manifest_exists; then
         echo "配置文件: $(config_path)"
         echo "安装日期: $(manifest_read 'install_date' 'unknown')"
@@ -302,7 +310,8 @@ _remove_completions() {
 # ─── CLI: Install ─────────────────────────────────────────────
 cmd_install() {
     echo ""
-    printf "  %sEasyWork %s%s%s — 开发环境配置%s\n" "${C_CYAN}" "${C_RESET}" "${EASYWORK_VERSION}" "${C_CYAN}" "${C_RESET}"
+    local channel_label="${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
+    printf "  %sEasyWork %s%s%s%s — 开发环境配置%s\n" "${C_CYAN}" "${C_RESET}" "${EASYWORK_VERSION}" "${channel_label}" "${C_CYAN}" "${C_RESET}"
     echo ""
 
     # Preflight check
@@ -350,15 +359,15 @@ cmd_install() {
 
     case "$install_mode" in
         fresh)
-            log_info "全新安装 EasyWork ${EASYWORK_VERSION}"
+            log_info "全新安装 EasyWork ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
             config_init
             manifest_init "$EASYWORK_VERSION"
             ;;
         upgrade)
-            log_info "升级: ${installed_ver} → ${EASYWORK_VERSION}"
+            log_info "升级: ${installed_ver} → ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
             ;;
         same_version)
-            log_info "已安装 ${EASYWORK_VERSION}，配置已是最新"
+            log_info "已安装 ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}，配置已是最新"
             if $IS_PIPED; then
                 # Piped reinstall: skip config refresh, continue to binary overwrite
                 :
@@ -409,9 +418,11 @@ cmd_install() {
 
     echo ""
     if $IS_PIPED; then
-        log_success "EasyWork ${EASYWORK_VERSION} CLI 准备就绪"
+        local channel_label="${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
+    log_success "EasyWork ${EASYWORK_VERSION}${channel_label} CLI 准备就绪"
     else
-        log_success "EasyWork ${EASYWORK_VERSION} 安装完成 🎉"
+        local channel_label="${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
+    log_success "EasyWork ${EASYWORK_VERSION}${channel_label} 安装完成 🎉"
         log_info "运行 easywork 查看可用命令"
     fi
 
@@ -555,7 +566,7 @@ _finalize_uninstall() {
 # ─── CLI: Help ────────────────────────────────────────────────
 cmd_help() {
     cat << EOF
-EasyWork — 开发环境一键配置 ${EASYWORK_VERSION}
+EasyWork — 开发环境一键配置 ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}
 
 用法:
   easywork install                一键安装全部组件
