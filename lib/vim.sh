@@ -11,7 +11,7 @@ VIMRC_FILE="$HOME/.vimrc"
 VIM_DIR="$HOME/.vim"
 
 module_check() {
-    [[ -f "$VIMRC_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2> /dev/null
+    [[ -f "$VIMRC_FILE" ]] && grep -qF "EasyWork managed section" "$VIMRC_FILE" 2> /dev/null
 }
 
 module_status() {
@@ -285,7 +285,7 @@ module_install() {
 
     # Backup existing vimrc (if not managed by easywork)
     local bak
-    if [[ -f "$VIMRC_FILE" ]] && ! grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2> /dev/null; then
+    if [[ -f "$VIMRC_FILE" ]] && ! grep -qF "EasyWork managed section" "$VIMRC_FILE" 2> /dev/null; then
         bak="$(backup_file "$VIMRC_FILE")"
         log_info "已备份现有 ~/.vimrc → ${bak}"
     fi
@@ -293,7 +293,7 @@ module_install() {
     # Generate vim config
     local config_content
     config_content="$(_generate_vimrc)"
-    replace_managed_section "$VIMRC_FILE" "$EASYWORK_VERSION" "$config_content"
+    replace_managed_section "$VIMRC_FILE" "$EASYWORK_VERSION" "$config_content" '"'
     log_success "已生成: $VIMRC_FILE"
 
     # Create undo directory
@@ -343,34 +343,32 @@ module_uninstall() {
         fi
     else
         # Remove managed section
-        if [[ -f "$VIMRC_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2> /dev/null; then
+        if [[ -f "$VIMRC_FILE" ]] && grep -qF "EasyWork managed section" "$VIMRC_FILE" 2> /dev/null; then
             # Remove managed section, preserve user content outside markers
-			local tmpfile="${VIMRC_FILE}.tmp.$$"
-			local begin_marker="# >>> EasyWork managed section"
-			local end_marker="# <<< EasyWork managed section end <<<"
-			local in_section=false
-			local had_content=false
-			while IFS= read -r line; do
-				if [[ "$line" == "$begin_marker"* ]]; then
-					in_section=true
-					had_content=true
-					continue
-				fi
-				if $in_section && [[ "$line" == "$end_marker" ]]; then
-					in_section=false
-					continue
-				fi
-				if ! $in_section; then
-					echo "$line" >> "$tmpfile"
-				fi
-			done < "$VIMRC_FILE"
-			if $had_content; then
-				mv "$tmpfile" "$VIMRC_FILE"
-				log_success "已移除 EasyWork Vim 配置"
-			else
-				rm -f "$tmpfile"
-			fi
-                    fi
+            local tmpfile="${VIMRC_FILE}.tmp.$$"
+            local in_section=false
+            local had_content=false
+            while IFS= read -r line; do
+                if [[ "$line" =~ "EasyWork managed section begin" ]]; then
+                    in_section=true
+                    had_content=true
+                    continue
+                fi
+                if $in_section && [[ "$line" =~ "EasyWork managed section end" ]]; then
+                    in_section=false
+                    continue
+                fi
+                if ! $in_section; then
+                    echo "$line" >> "$tmpfile"
+                fi
+            done < "$VIMRC_FILE"
+            if $had_content; then
+                mv "$tmpfile" "$VIMRC_FILE"
+                log_success "已移除 EasyWork Vim 配置"
+            else
+                rm -f "$tmpfile"
+            fi
+        fi
     fi
 
     # Ask about ~/.vim directory

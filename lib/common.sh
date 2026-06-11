@@ -137,21 +137,24 @@ restore_backup() {
 # ─── Managed Section Markers ──────────────────────────────────
 managed_section_begin() {
     local version="${1:-unknown}"
-    echo "# >>> EasyWork managed section begin (v${version}) >>>"
+    local comment="${2:-#}"
+    echo "${comment} >>> EasyWork managed section begin (v${version}) >>>"
 }
 
 managed_section_end() {
-    echo "# <<< EasyWork managed section end <<<"
+    local comment="${1:-#}"
+    echo "${comment} <<< EasyWork managed section end <<<"
 }
 
 replace_managed_section() {
     local file="$1"
     local version="$2"
     local content="$3"
+    local comment="${4:-#}"
     local begin_marker
-    begin_marker="$(managed_section_begin "$version")"
+    begin_marker="$(managed_section_begin "$version" "$comment")"
     local end_marker
-    end_marker="$(managed_section_end)"
+    end_marker="$(managed_section_end "$comment")"
 
     if [[ ! -f "$file" ]]; then
         # File doesn't exist — create with managed section
@@ -163,20 +166,20 @@ replace_managed_section() {
         return 0
     fi
 
-    if grep -qF "# >>> EasyWork managed section begin" "$file" 2>/dev/null; then
-        # Managed section exists — replace it (match markers by prefix for cross-version compat)
+    # Comment-agnostic detection: matches old # markers and new " markers
+    if grep -qF "EasyWork managed section begin" "$file" 2>/dev/null; then
+        # Managed section exists — replace it (comment-agnostic matching for cross-version compat)
         local tmpfile
         tmpfile="${file}.tmp.$$"
         local in_section=false
-        local marker_prefix="# >>> EasyWork managed section begin"
         while IFS= read -r line; do
-            if [[ "$line" == "$marker_prefix"* ]]; then
+            if [[ "$line" =~ "EasyWork managed section begin" ]]; then
                 in_section=true
                 echo "$begin_marker" >> "$tmpfile"
                 echo "$content" >> "$tmpfile"
                 continue
             fi
-            if [[ "$line" == "$end_marker" ]]; then
+            if [[ "$line" =~ "EasyWork managed section end" ]]; then
                 in_section=false
                 echo "$end_marker" >> "$tmpfile"
                 continue
@@ -401,7 +404,7 @@ register_module() {
     local priority="${3:-50}"
 
     # Validate: module name must not conflict with reserved words
-    local reserved="^(install|uninstall|config|version|update|help)$"
+    local reserved="^(install|uninstall|config|version|update)$"
     if [[ "$name" =~ $reserved ]]; then
         log_error "模块名 '$name' 与内置命令冲突"
         exit $EXIT_ERROR
