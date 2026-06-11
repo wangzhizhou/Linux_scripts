@@ -41,7 +41,7 @@ _ensure_node() {
     # Fallback: nvm
     export NVM_DIR="$HOME/.nvm"
     if [[ ! -d "$NVM_DIR" ]]; then
-        safe_download "https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh" | bash 2> /dev/null || {
+        safe_download "https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh" | bash 2> /dev/null || {
             log_warn "nvm 下载失败"
             return 1
         }

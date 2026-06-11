@@ -38,7 +38,7 @@ _validate_name() {
     [[ -n "$name" ]] || return 1
     # Must not contain dangerous shell metacharacters
     local pattern
-    pattern='[$`\|&;()]'
+    pattern='[$`\|&;(){}<>!#~]'
     if echo "$name" | grep -qE "$pattern" 2> /dev/null; then
         return 1
     fi

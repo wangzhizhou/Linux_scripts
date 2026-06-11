@@ -50,6 +50,7 @@ log_info() { printf "  %s[INFO]%s %s\n" "${C_BLUE}" "${C_RESET}" "$*"; }
 log_success() { printf "  %s[OK]%s %s\n" "${C_GREEN}" "${C_RESET}" "$*"; }
 log_warn() { printf "  %s[WARN]%s %s\n" "${C_YELLOW}" "${C_RESET}" "$*" >&2; }
 log_error() { printf "  %s[ERROR]%s %s\n" "${C_RED}" "${C_RESET}" "$*" >&2; }
+log_verbose() { [[ "${VERBOSE:-false}" == "true" ]] && printf "  %s[DEBUG]%s %s\n" "${C_PURPLE}" "${C_RESET}" "$*"; }
 
 # ─── System Detection ─────────────────────────────────────────
 detect_os() {

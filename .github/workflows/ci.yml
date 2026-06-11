@@ -45,7 +45,7 @@ jobs:
           if command -v brew >/dev/null 2>&1; then
             brew install shfmt
           else
-            sudo apt-get install -y shfmt || go install mvdan.cc/sh/v3/cmd/shfmt@latest
+            sudo apt-get install -y shfmt || go install mvdan.cc/sh/v3/cmd/shfmt@v3.10.0
           fi
 
       - name: Install BATS

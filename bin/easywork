@@ -259,25 +259,11 @@ cmd_install() {
     esac
 
     # Run all modules
-    local module_list
-    module_list="$(list_modules_sorted)"
-    local module_order=()
-    while IFS= read -r name; do
-        [[ -n "$name" ]] && module_order+=("$name")
-    done <<< "$module_list"
-    local sorted
-    local sorted=""
-    local _idx
-    for n in "${module_order[@]}"; do
-        _idx="$(_get_module_index "$n" 2> /dev/null || echo '')"
-        if [[ -n "$_idx" ]]; then
-            sorted+="${MODULE_PRIORITY_VALUES[$_idx]}|$n"$'
-'
-        fi
-    done
-    sorted="$(echo "$sorted" | sort -t'|' -k1 -n | cut -d'|' -f2)"
+	# Run all modules in priority order (already sorted by list_modules_sorted)
+	local sorted
+	sorted="$(list_modules_sorted)"
 
-    for name in $sorted; do
+	for name in $sorted; do
         echo ""
         log_info "[${name}] 开始..."
         # Re-source module file so the correct module_install is in scope
