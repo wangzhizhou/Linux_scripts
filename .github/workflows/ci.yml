@@ -19,6 +19,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Cache Tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/bin/shellcheck
+            /usr/local/bin/shfmt
+            /usr/local/bin/bats
+            /usr/local/libexec/bats-core
+            ~/go/bin/shfmt
+          key: ${{ runner.os }}-easywork-tools-${{ hashFiles('.github/workflows/ci.yml') }}
+
       - name: Install ShellCheck
         shell: bash
         run: |
@@ -47,9 +58,9 @@ jobs:
             sudo /tmp/bats/install.sh /usr/local
           fi
 
-      - name: ShellCheck
+      - name: ShellCheck (source)
         shell: bash
-        run: shellcheck bin/easywork lib/*.sh
+        run: shellcheck bin/easywork lib/*.sh tests/*.bats tests/helpers/*.bash
 
       - name: Syntax Check (bash)
         shell: bash

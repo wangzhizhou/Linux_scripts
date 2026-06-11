@@ -1,5 +1,12 @@
 .DS_Store
 .vscode/
+.idea/
+.claude/
+
+# Editor artifacts
+*.swp
+*~
+*.orig
 
 # EasyWork local files (do not commit)
 easywork.conf

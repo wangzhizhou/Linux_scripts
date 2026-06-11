@@ -141,7 +141,7 @@ alias spm='swift package'
 run() {
     local number="$1"
     shift
-    for n in $(seq "$number"); do "$@"; done
+    for ((n = 0; n < number; n++)); do "$@"; done
 }
 
 # ── Utility: Flush DNS cache (macOS) ──
