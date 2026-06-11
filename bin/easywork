@@ -496,13 +496,17 @@ main() {
 
     local cmd="${1:-}"
 
-    # Pipe detection: if stdin is not a tty and no explicit command, default to install
+    # Pipe detection: if stdin is not a tty, default to install + non-interactive
     if [[ -z "$cmd" ]]; then
         if [[ ! -t 0 ]] || $IS_PIPED; then
             cmd="install"
+            YES_MODE=true
         else
             cmd="help"
         fi
+    elif $IS_PIPED && [[ "$cmd" == "install" ]]; then
+        # Piped with explicit command — also force non-interactive
+        YES_MODE=true
     fi
 
     # Discover modules (only when needed)
