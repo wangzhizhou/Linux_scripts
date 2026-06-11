@@ -491,12 +491,14 @@ cmd_uninstall() {
         # Re-source module to ensure correct module_uninstall is in scope
         if [[ -f "${LIB_DIR}/${t}.sh" ]]; then
             source "${LIB_DIR}/${t}.sh"
-        fi
-        if module_uninstall; then
-            manifest_remove_section "$t"
-            log_success "[${t}] 已卸载"
+            if module_uninstall; then
+                manifest_remove_section "$t"
+                log_success "[${t}] 已卸载"
+            else
+                log_warn "[${t}] 卸载时出现警告，继续..."
+            fi
         else
-            log_warn "[${t}] 卸载时出现警告，继续..."
+            log_warn "[${t}] 模块文件未找到，跳过卸载"
         fi
         echo ""
     done
@@ -658,18 +660,20 @@ main() {
                 # Re-source the correct module to get its functions
                 if [[ -f "${LIB_DIR}/${cmd}.sh" ]]; then
                     source "${LIB_DIR}/${cmd}.sh"
-                fi
-                if declare -f module_install > /dev/null 2>&1; then
-                    acquire_lock || exit $?
-                    if module_install; then
-                        manifest_set_section "$cmd" "installed=true"
-                        log_success "[${cmd}] 完成"
+                    if declare -f module_install > /dev/null 2>&1; then
+                        acquire_lock || exit $?
+                        if module_install; then
+                            manifest_set_section "$cmd" "installed=true"
+                            log_success "[${cmd}] 完成"
+                        else
+                            log_error "[${cmd}] 失败"
+                        fi
+                        release_lock
                     else
-                        log_error "[${cmd}] 失败"
+                        log_error "模块 '$cmd' 未实现 module_install"
                     fi
-                    release_lock
                 else
-                    log_error "模块 '$cmd' 未实现 module_install"
+                    log_error "模块文件未找到: ${LIB_DIR}/${cmd}.sh"
                 fi
             else
                 log_error "未知命令: $cmd"
