@@ -292,7 +292,16 @@ cmd_install() {
         [[ -n "$name" ]] && module_order+=("$name")
     done <<< "$module_list"
     local sorted
-    sorted="$(for n in "${module_order[@]}"; do echo "${MODULE_PRIORITIES[$n]}|$n"; done | sort -t'|' -k1 -n | cut -d'|' -f2)"
+    local sorted=""
+    local _idx
+    for n in "${module_order[@]}"; do
+        _idx="$(_get_module_index "$n" 2>/dev/null || echo '')"
+        if [[ -n "$_idx" ]]; then
+            sorted+="${MODULE_PRIORITY_VALUES[$_idx]}|$n"$'
+'
+        fi
+    done
+    sorted="$(echo "$sorted" | sort -t'|' -k1 -n | cut -d'|' -f2)"
 
     for name in $sorted; do
         echo ""

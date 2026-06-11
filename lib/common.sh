@@ -381,8 +381,10 @@ config_edit() {
 }
 
 # ─── Module Registry ──────────────────────────────────────────
-declare -A MODULES
-declare -A MODULE_PRIORITIES
+# Uses indexed arrays for bash 3.2+ compatibility (macOS default)
+MODULE_NAMES=()
+MODULE_DESCRIPTIONS=()
+MODULE_PRIORITY_VALUES=()
 
 register_module() {
     local name="$1"
@@ -396,26 +398,57 @@ register_module() {
         exit $EXIT_ERROR
     fi
 
-    MODULES["$name"]="$description"
-    MODULE_PRIORITIES["$name"]="$priority"
+    # Prevent duplicate registration
+    if module_registered "$name"; then
+        return 0
+    fi
+
+    MODULE_NAMES+=("$name")
+    MODULE_DESCRIPTIONS+=("$description")
+    MODULE_PRIORITY_VALUES+=("$priority")
 }
 
 module_registered() {
-    [[ -n "${MODULES[$1]:-}" ]]
+    local name="$1"
+    local n
+    for n in "${MODULE_NAMES[@]}"; do
+        [[ "$n" == "$name" ]] && return 0
+    done
+    return 1
+}
+
+_get_module_index() {
+    local name="$1"
+    local i
+    for i in "${!MODULE_NAMES[@]}"; do
+        if [[ "${MODULE_NAMES[$i]}" == "$name" ]]; then
+            echo "$i"
+            return 0
+        fi
+    done
+    return 1
 }
 
 list_modules() {
-    for name in "${!MODULES[@]}"; do
-        echo "${MODULE_PRIORITIES[$name]}|${name}|${MODULES[$name]}"
-    done | sort -t'|' -k1 -n | while IFS='|' read -r prio name desc; do
-        printf "  %-30s %s\n" "$name" "$desc"
+    local entries=() i
+    for i in "${!MODULE_NAMES[@]}"; do
+        entries+=("${MODULE_PRIORITY_VALUES[$i]}|${MODULE_NAMES[$i]}|${MODULE_DESCRIPTIONS[$i]}")
     done
+    if [[ ${#entries[@]} -gt 0 ]]; then
+        printf '%s\n' "${entries[@]}" | sort -t'|' -k1 -n | while IFS='|' read -r prio name desc; do
+            [[ -n "$name" ]] && printf "  %-30s %s\n" "$name" "$desc"
+        done
+    fi
 }
 
 list_modules_sorted() {
-    for name in "${!MODULES[@]}"; do
-        echo "${MODULE_PRIORITIES[$name]}|${name}"
-    done | sort -t'|' -k1 -n | cut -d'|' -f2
+    local entries=() i
+    for i in "${!MODULE_NAMES[@]}"; do
+        entries+=("${MODULE_PRIORITY_VALUES[$i]}|${MODULE_NAMES[$i]}")
+    done
+    if [[ ${#entries[@]} -gt 0 ]]; then
+        printf '%s\n' "${entries[@]}" | sort -t'|' -k1 -n | cut -d'|' -f2
+    fi
 }
 
 # ─── Concurrency Lock ─────────────────────────────────────────
