@@ -307,9 +307,7 @@ module_install() {
     replace_managed_section "$GIT_CONFIG_FILE" "$EASYWORK_VERSION" "$config_content"
     log_success "已生成: $GIT_CONFIG_FILE"
 
-    # Set git config globally (for immediate effect)
-    git config --global --replace-all user.name "$GIT_USER_NAME" 2>/dev/null || git config --global user.name "$GIT_USER_NAME"
-    git config --global --replace-all user.email "$GIT_USER_EMAIL" 2>/dev/null || git config --global user.email "$GIT_USER_EMAIL"
+    # Identity is set via managed section in ~/.gitconfig — no separate git config call needed
 
     # Record to manifest
     manifest_set_section "git" \
@@ -332,7 +330,7 @@ module_uninstall() {
 
     # Try to restore backup
     local config_backup
-    config_backup="$(manifest_read 'git_config_backup')"
+    config_backup="$(manifest_read 'config_backup')"
     if [[ -n "$config_backup" ]] && [[ -f "$config_backup" ]]; then
         local answer="y"
         if [[ "${YES_MODE:-false}" != "true" ]]; then

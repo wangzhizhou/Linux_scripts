@@ -331,7 +331,7 @@ module_uninstall() {
 
     # Restore backup
     local bak_file
-    bak_file="$(manifest_read 'vim_vimrc_backup')"
+    bak_file="$(manifest_read 'vimrc_backup')"
     if [[ -n "$bak_file" ]] && [[ -f "$bak_file" ]]; then
         local answer="y"
         if [[ "${YES_MODE:-false}" != "true" ]]; then
@@ -344,9 +344,33 @@ module_uninstall() {
     else
         # Remove managed section
         if [[ -f "$VIMRC_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2> /dev/null; then
-            rm -f "$VIMRC_FILE"
-            log_success "已删除: $VIMRC_FILE"
-        fi
+            # Remove managed section, preserve user content outside markers
+			local tmpfile="${VIMRC_FILE}.tmp.$$"
+			local begin_marker="# >>> EasyWork managed section"
+			local end_marker="# <<< EasyWork managed section end <<<"
+			local in_section=false
+			local had_content=false
+			while IFS= read -r line; do
+				if [[ "$line" == "$begin_marker"* ]]; then
+					in_section=true
+					had_content=true
+					continue
+				fi
+				if $in_section && [[ "$line" == "$end_marker" ]]; then
+					in_section=false
+					continue
+				fi
+				if ! $in_section; then
+					echo "$line" >> "$tmpfile"
+				fi
+			done < "$VIMRC_FILE"
+			if $had_content; then
+				mv "$tmpfile" "$VIMRC_FILE"
+				log_success "已移除 EasyWork Vim 配置"
+			else
+				rm -f "$tmpfile"
+			fi
+                    fi
     fi
 
     # Ask about ~/.vim directory

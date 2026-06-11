@@ -71,7 +71,6 @@ jobs:
       - name: Run Tests
         shell: bash
         run: bats tests/ --recursive
-        continue-on-error: true
 
       - name: Dry-run Install
         shell: bash
@@ -83,5 +82,5 @@ jobs:
 
       - name: Format Check
         shell: bash
-        run: shfmt -d .
+        run: shfmt -d -i 4 -bn -ci -sr .
         continue-on-error: true

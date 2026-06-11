@@ -102,11 +102,12 @@ check_network() {
 safe_download() {
     local url="$1"
     local output="${2:-}"
+    shift 2 2>/dev/null || true
     local opts=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --retry-connrefused)
     if [[ -n "$output" ]]; then
-        curl "${opts[@]}" -o "$output" "$url"
+        curl "${opts[@]}" "$@" -o "$output" "$url"
     else
-        curl "${opts[@]}" "$url"
+        curl "${opts[@]}" "$@" "$url"
     fi
 }
 
@@ -310,7 +311,8 @@ manifest_remove_section() {
     done < "$MANIFEST_FILE"
 
     # Remove trailing blank lines
-    new_manifest="$(echo "$new_manifest" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' 2> /dev/null || echo "$new_manifest")"
+    # Remove trailing blank lines (portable awk instead of BSD/GNU sed)
+    new_manifest="$(echo "$new_manifest" | awk 'NF{last=NR}; {lines[NR]=$0} END{for(i=1;i<=last;i++) print lines[i]}')"
     echo "$new_manifest" > "$MANIFEST_FILE"
 }
 
@@ -460,30 +462,33 @@ list_modules_sorted() {
 
 # ─── Concurrency Lock ─────────────────────────────────────────
 LOCK_FILE="${TMPDIR:-/tmp}/easywork.lock"
-LOCK_FD=""
+# Use fixed fd=200 for bash 3.2 compatibility (no {varname}> auto-assignment)
+LOCK_FD=200
 
 acquire_lock() {
     local timeout="${1:-30}"
 
     # Try flock (Linux) first
     if has_cmd flock; then
-        exec {LOCK_FD}> "$LOCK_FILE"
-        if flock -w "$timeout" "$LOCK_FD" 2> /dev/null; then
+        eval "exec ${LOCK_FD}> \"$LOCK_FILE\""
+        if flock -w "$timeout" "$LOCK_FD" 2>/dev/null; then
             return 0
         fi
+        eval "exec ${LOCK_FD}>&-" 2>/dev/null || true
     fi
 
     # Try shlock (macOS)
     if has_cmd shlock; then
-        if shlock -f "$LOCK_FILE" -p $$ 2> /dev/null; then
+        if shlock -f "$LOCK_FILE" -p $$ 2>/dev/null; then
             return 0
         fi
     fi
 
     # Fallback: mkdir atomic operation
+    local lock_dir="${LOCK_FILE}.dir"
     local start
     start=$(date +%s)
-    while ! mkdir "${LOCK_FILE}.dir" 2> /dev/null; do
+    while ! mkdir "$lock_dir" 2>/dev/null; do
         local now
         now=$(date +%s)
         if ((now - start >= timeout)); then
@@ -492,19 +497,23 @@ acquire_lock() {
         fi
         sleep 0.5
     done
-    LOCK_FILE="${LOCK_FILE}.dir"
+    # Save lock_dir path for cleanup (overwrite LOCK_FILE to signal mkdir was used)
+    LOCK_FILE="$lock_dir"
     return 0
 }
 
 release_lock() {
+    # Release flock if active
     if [[ -n "${LOCK_FD:-}" ]]; then
-        flock -u "$LOCK_FD" 2> /dev/null || true
-        exec {LOCK_FD}>&- 2> /dev/null || true
+        flock -u "$LOCK_FD" 2>/dev/null || true
+        eval "exec ${LOCK_FD}>&-" 2>/dev/null || true
     fi
-    if [[ -d "${LOCK_FILE}.dir" ]]; then
-        rmdir "${LOCK_FILE}.dir" 2> /dev/null || true
+    # Clean up mkdir-based lock directory
+    if [[ "$LOCK_FILE" == *.dir ]] && [[ -d "$LOCK_FILE" ]]; then
+        rmdir "$LOCK_FILE" 2>/dev/null || true
+    elif [[ -f "$LOCK_FILE" ]]; then
+        rm -f "$LOCK_FILE" 2>/dev/null || true
     fi
-    rm -f "$LOCK_FILE" 2> /dev/null || true
     LOCK_FD=""
 }
 
