@@ -36,12 +36,16 @@ if [[ -n "$LIB_DIR" ]] && [[ -d "$LIB_DIR" ]]; then
         source "$LIB_DIR/common.sh"
     fi
 else
-    # Running piped or standalone — download lib files
+    # Running piped or standalone — download lib files using raw curl
+    # (safe_download is defined in common.sh, so we bootstrap with curl directly)
     _TMPDIR="$(mktemp -d)"
     # shellcheck disable=SC2064
     trap "rm -rf ${_TMPDIR}" EXIT
-    safe_download "${EASYWORK_RAW_URL}/lib/common.sh" "$_TMPDIR/common.sh" 2> /dev/null || {
+    curl -fsSL --proto '=https' --tlsv1.2 --retry 3 \
+        -o "$_TMPDIR/common.sh" \
+        "${EASYWORK_RAW_URL}/lib/common.sh" 2>/dev/null || {
         echo "[ERROR] 无法下载 common.sh，请检查网络连接"
+        echo "[INFO]  URL: ${EASYWORK_RAW_URL}/lib/common.sh"
         exit 2
     }
     source "$_TMPDIR/common.sh"
