@@ -314,6 +314,20 @@ _remove_completions() {
 
 # ─── CLI: Install ─────────────────────────────────────────────
 cmd_install() {
+    local target="${1:-}"
+
+    # Validate target module if specified
+    if [[ -n "$target" ]]; then
+        _discover_modules "$LIB_DIR"
+        if ! module_registered "$target"; then
+            log_error "未知组件: $target"
+            echo ""
+            log_info "可用组件:"
+            list_modules
+            return $EXIT_ERROR
+        fi
+    fi
+
     echo ""
     local channel_label="${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
     printf "  %sEasyWork %s%s%s%s — 开发环境配置%s\n" "${C_CYAN}" "${C_RESET}" "${EASYWORK_VERSION}" "${channel_label}" "${C_CYAN}" "${C_RESET}"
@@ -376,6 +390,9 @@ cmd_install() {
             if $IS_PIPED; then
                 # Piped reinstall: skip config refresh, continue to binary overwrite
                 :
+            elif [[ -n "$target" ]]; then
+                # Explicit target: continue to install specific module
+                :
             elif [[ "${YES_MODE:-false}" != "true" ]]; then
                 local answer
                 read -r -p "  重新应用配置？[y/N] " answer
@@ -397,6 +414,8 @@ cmd_install() {
 	sorted="$(list_modules_sorted)"
 
 	for name in $sorted; do
+        # Filter by target if specified
+        [[ -n "$target" && "$name" != "$target" ]] && continue
         echo ""
         log_info "配置 ${name}..."
         # Re-source module file so the correct module_install is in scope
@@ -663,7 +682,8 @@ main() {
 
     case "$cmd" in
         install)
-            cmd_install
+            shift 2>/dev/null || true
+            cmd_install "$@"
             ;;
         uninstall)
             shift 2> /dev/null || true
