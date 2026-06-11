@@ -1,5 +1,8 @@
 # EasyWork
 
+[![CI](https://github.com/EasyIndie/EasyWork/actions/workflows/ci.yml/badge.svg)](https://github.com/EasyIndie/EasyWork/actions/workflows/ci.yml)
+[![Release](https://github.com/EasyIndie/EasyWork/actions/workflows/release.yml/badge.svg)](https://github.com/EasyIndie/EasyWork/actions/workflows/release.yml)
+
 一条命令，配置好你的开发环境。
 
 ## 一键安装（macOS / Linux）
