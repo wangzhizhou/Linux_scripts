@@ -265,12 +265,8 @@ module_install() {
         "source_file=${rc_file}" \
         "config_created=${SH_CONFIG_FILE}"
 
-    # Source the config in current session
-    if [[ -f "$rc_file" ]]; then
-        # shellcheck disable=SC1090
-        source "$rc_file" 2> /dev/null || true
-    fi
-
+    # Note: config takes effect automatically in new shell sessions
+    log_info "配置将在新终端会话中自动生效"
     return 0
 }
 

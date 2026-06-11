@@ -308,8 +308,8 @@ module_install() {
     log_success "已生成: $GIT_CONFIG_FILE"
 
     # Set git config globally (for immediate effect)
-    git config --global user.name "$GIT_USER_NAME"
-    git config --global user.email "$GIT_USER_EMAIL"
+    git config --global --replace-all user.name "$GIT_USER_NAME" 2>/dev/null || git config --global user.name "$GIT_USER_NAME"
+    git config --global --replace-all user.email "$GIT_USER_EMAIL" 2>/dev/null || git config --global user.email "$GIT_USER_EMAIL"
 
     # Record to manifest
     manifest_set_section "git" \

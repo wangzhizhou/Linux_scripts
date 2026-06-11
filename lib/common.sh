@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# Version (set by bin/easywork; default for standalone module usage)
+EASYWORK_VERSION="${EASYWORK_VERSION:-1.0.0}"
+
 # ─── Exit Codes ───────────────────────────────────────────────
 export EXIT_SUCCESS=0
 export EXIT_ERROR=1
