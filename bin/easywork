@@ -30,11 +30,10 @@ else
 fi
 
 # ─── Source Common Library ────────────────────────────────────
-if [[ -n "$LIB_DIR" ]] && [[ -d "$LIB_DIR" ]]; then
-    # Running from local checkout
-    if [[ -f "$LIB_DIR/common.sh" ]]; then
-        source "$LIB_DIR/common.sh"
-    fi
+# Try local checkout first, then fall back to download (standalone/piped install)
+_local_common="${LIB_DIR}/common.sh"
+if [[ -f "$_local_common" ]]; then
+    source "$_local_common"
 else
     # Running piped or standalone — download lib files using raw curl
     # (safe_download is defined in common.sh, so we bootstrap with curl directly)
@@ -60,10 +59,10 @@ _discover_modules() {
         return 0
     fi
 
-    # Download remote modules if piped
-    if $IS_PIPED && [[ "$lib_dir" == "$_TMPDIR" ]]; then
+    # Download remote modules if running from temp dir (piped/standalone)
+    if [[ "$lib_dir" == "$_TMPDIR" ]]; then
         for mod in shell git vim; do
-            safe_download "${EASYWORK_RAW_URL}/lib/${mod}.sh" "$_TMPDIR/${mod}.sh" 2> /dev/null || true
+            [[ -f "${_TMPDIR}/${mod}.sh" ]] || safe_download "${EASYWORK_RAW_URL}/lib/${mod}.sh" "${_TMPDIR}/${mod}.sh" 2>/dev/null || true
         done
     fi
 
@@ -445,7 +444,6 @@ $(list_modules)
   --yes, -y             跳过交互确认
   --verbose, -v         详细输出
 
-项目: ${EASYWORK_WEB_URL}
 EOF
 }
 
