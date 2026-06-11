@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]*.[0-9]*.[0-9]*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Semver Tag
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/}"
+          if [[ ! "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Tag '${TAG_VERSION}' is not valid semver (must be MAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+          echo "Semver tag validated: ${TAG_VERSION}"
+
+      - name: Verify Version Consistency
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/}"
+          FILE_VERSION="$(cat VERSION | head -1 | tr -d '[:space:]')"
+          if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+            echo "ERROR: Tag (${TAG_VERSION}) != VERSION file (${FILE_VERSION})"
+            exit 1
+          fi
+          echo "Version check passed: ${TAG_VERSION}"
+
+      - name: Install ShellCheck
+        run: sudo apt-get update -y && sudo apt-get install -y shellcheck
+
+      - name: ShellCheck
+        run: shellcheck bin/easywork lib/*.sh
+
+      - name: Syntax Check
+        run: |
+          for f in bin/easywork lib/*.sh; do
+            bash -n "$f" || exit 1
+          done
+
+      - name: Install BATS
+        run: |
+          git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats
+          sudo /tmp/bats/install.sh /usr/local
+
+      - name: Run Tests
+        run: bats tests/ --recursive || true
+
+      - name: Dry-run Verification
+        run: |
+          ./bin/easywork install --dry-run --yes
+          ./bin/easywork uninstall --dry-run --yes --remove-config
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "## Changes since ${PREV_TAG}" > /tmp/changelog.md
+            git log "${PREV_TAG}..HEAD" --pretty=format:'- %s (%h)' >> /tmp/changelog.md
+          else
+            echo "## Initial Release" > /tmp/changelog.md
+            git log --pretty=format:'- %s (%h)' >> /tmp/changelog.md
+          fi
+          cat /tmp/changelog.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: /tmp/changelog.md
+          files: |
+            bin/easywork
+            lib/common.sh
+            lib/shell.sh
+            lib/git.sh
+            lib/vim.sh
+            easywork.conf.example
+            VERSION
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

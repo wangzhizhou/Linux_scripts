@@ -1,2 +1,7 @@
 .DS_Store
 .vscode/
+
+# EasyWork local files (do not commit)
+easywork.conf
+*.tmp
+*.bak

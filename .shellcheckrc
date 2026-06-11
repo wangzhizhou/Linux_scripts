@@ -1,0 +1,15 @@
+# ShellCheck configuration for EasyWork
+# https://www.shellcheck.net/wiki/
+
+# Enable all optional checks
+enable=all
+
+# Disable specific rules that don't apply
+# SC1090: Can't follow non-constant source (we source user config files at runtime)
+# SC1091: Not following (external scripts we download at runtime)
+# SC2034: Unused variables (module files export variables used by easywork CLI)
+# SC2154: Referenced but not assigned (module variables set by easywork runtime)
+disable=SC1090,SC1091,SC2034,SC2154
+
+# Source paths (relative to repo root)
+external-sources=true

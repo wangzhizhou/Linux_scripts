@@ -1,0 +1,582 @@
+#!/usr/bin/env bash
+# -*- coding: utf-8 -*-
+# EasyWork — Developer Environment Bootstrap Tool
+# https://github.com/EasyIndie/EasyWork
+
+set -euo pipefail
+
+EASYWORK_VERSION="1.0.0"
+
+# ─── Repository URLs (override via environment for forks/mirrors) ──
+# Raw content URL — used for curl|bash install and module downloads
+EASYWORK_RAW_URL="${EASYWORK_RAW_URL:-https://raw.githubusercontent.com/EasyIndie/EasyWork/main}"
+# Release download base — used by 'easywork update' to fetch specific versions
+EASYWORK_RELEASE_URL="${EASYWORK_RELEASE_URL:-https://github.com/EasyIndie/EasyWork/releases/download}"
+# Project homepage
+EASYWORK_WEB_URL="${EASYWORK_WEB_URL:-https://github.com/EasyIndie/EasyWork}"
+# GitHub API — used by 'easywork update' to check latest release
+EASYWORK_API_URL="${EASYWORK_API_URL:-https://api.github.com/repos/EasyIndie/EasyWork/releases/latest}"
+
+# ─── Determine Paths ──────────────────────────────────────────
+# When piped via curl, $0 is "bash" or "-bash". Resolve to temp location.
+if [[ "${BASH_SOURCE[0]:-}" =~ ^(bash|-bash|/dev/fd/|pipe:) ]] || [[ ! -f "$0" ]]; then
+    EASYWORK_ROOT=""
+    LIB_DIR=""
+    IS_PIPED=true
+else
+    EASYWORK_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+    LIB_DIR="${EASYWORK_ROOT}/lib"
+    IS_PIPED=false
+fi
+
+# ─── Source Common Library ────────────────────────────────────
+if [[ -n "$LIB_DIR" ]] && [[ -d "$LIB_DIR" ]]; then
+    # Running from local checkout
+    if [[ -f "$LIB_DIR/common.sh" ]]; then
+        source "$LIB_DIR/common.sh"
+    fi
+else
+    # Running piped or standalone — download lib files
+    _TMPDIR="$(mktemp -d)"
+    # shellcheck disable=SC2064
+    trap "rm -rf ${_TMPDIR}" EXIT
+    safe_download "${EASYWORK_RAW_URL}/lib/common.sh" "$_TMPDIR/common.sh" 2>/dev/null || {
+        echo "[ERROR] 无法下载 common.sh，请检查网络连接"
+        exit 2
+    }
+    source "$_TMPDIR/common.sh"
+    LIB_DIR="$_TMPDIR"
+fi
+
+# ─── Module Auto-Discovery ────────────────────────────────────
+_discover_modules() {
+    local lib_dir="$1"
+
+    if [[ ! -d "$lib_dir" ]]; then
+        return 0
+    fi
+
+    # Download remote modules if piped
+    if $IS_PIPED && [[ "$lib_dir" == "$_TMPDIR" ]]; then
+        for mod in shell git vim; do
+            safe_download "${EASYWORK_RAW_URL}/lib/${mod}.sh" "$_TMPDIR/${mod}.sh" 2>/dev/null || true
+        done
+    fi
+
+    for f in "$lib_dir"/*.sh; do
+        [[ -f "$f" ]] || continue
+        # Skip common.sh itself
+        [[ "$(basename "$f")" == "common.sh" ]] && continue
+
+        # Reset module variables before sourcing
+        unset MODULE_NAME MODULE_DESCRIPTION MODULE_PRIORITY
+        source "$f"
+
+        if [[ -z "${MODULE_NAME:-}" ]]; then
+            log_warn "跳过 $f: 未定义 MODULE_NAME"
+            continue
+        fi
+
+        register_module "$MODULE_NAME" "${MODULE_DESCRIPTION:-}" "${MODULE_PRIORITY:-50}"
+    done
+}
+
+# ─── CLI: Version ─────────────────────────────────────────────
+cmd_version() {
+    echo "EasyWork ${EASYWORK_VERSION}"
+    if manifest_exists; then
+        echo "配置文件: $(config_path)"
+        echo "安装日期: $(manifest_read 'install_date' 'unknown')"
+        local installed; installed="$(manifest_list_installed | tr '\n' ' ')"
+        if [[ -n "${installed// /}" ]]; then
+            local shell_type; shell_type="$(manifest_read 'shell_type' '')"
+            if [[ -n "$shell_type" ]]; then
+                installed="${installed//shell/shell (${shell_type})}"
+            fi
+            echo "已安装组件: ${installed}"
+        else
+            echo "已安装组件: (无)"
+        fi
+    else
+        echo "状态: 未安装（运行 easywork install 开始配置）"
+    fi
+}
+
+# ─── CLI: Config ──────────────────────────────────────────────
+cmd_config() {
+    local sub="${1:-show}"
+    case "$sub" in
+        edit)
+            config_edit
+            ;;
+        show|*)
+            config_show
+            ;;
+    esac
+}
+
+# ─── Semver Comparison ───────────────────────────────────────
+# Returns: 0=equal, 1=first is newer, 2=second is newer
+_semver_compare() {
+    local IFS=.
+    local i
+    local a; IFS=. read -ra a <<< "${1:-0.0.0}"
+    local b; IFS=. read -ra b <<< "${2:-0.0.0}"
+    for i in 0 1 2; do
+        local ai=${a[$i]:-0}; ai=${ai//[!0-9]/}
+        local bi=${b[$i]:-0}; bi=${bi//[!0-9]/}
+        if (( ai > bi )); then return 1; fi
+        if (( ai < bi )); then return 2; fi
+    done
+    return 0
+}
+
+_semver_is_newer() {
+    # Returns 0 (true) if $1 > $2
+    _semver_compare "$1" "$2"
+    [[ $? -eq 1 ]]
+}
+
+# ─── CLI: Update ──────────────────────────────────────────────
+cmd_update() {
+    log_info "检查更新..."
+
+    # Fetch latest release info from GitHub API
+    local api_response
+    api_response="$(safe_download "${EASYWORK_API_URL}" -H "Accept: application/vnd.github+json" 2>/dev/null || true)"
+
+    local latest_version
+    latest_version="$(echo "$api_response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
+
+    if [[ -z "$latest_version" ]]; then
+        # Fallback: try reading VERSION from raw URL
+        latest_version="$(safe_download "${EASYWORK_RAW_URL}/VERSION" 2>/dev/null | head -1 | tr -d '[:space:]')" || true
+    fi
+
+    if [[ -z "$latest_version" ]]; then
+        log_error "无法检查更新，请检查网络连接"
+        return $EXIT_NETWORK
+    fi
+
+    local current_version; current_version="$(manifest_get_version)"
+    current_version="${current_version:-0.0.0}"
+
+    if ! _semver_is_newer "$latest_version" "$current_version"; then
+        log_success "已是最新版本 ${current_version}"
+        return $EXIT_SUCCESS
+    fi
+
+    log_info "当前版本: ${current_version}"
+    log_info "最新版本: ${latest_version}"
+
+    local answer="y"
+    if [[ "${YES_MODE:-false}" != "true" ]]; then
+        read -r -p "  升级到 ${latest_version}？[Y/n] " answer
+    fi
+
+    if [[ "$answer" =~ ^[Nn] ]]; then
+        log_info "已取消升级"
+        return $EXIT_SUCCESS
+    fi
+
+    # Self-update: download versioned release asset
+    local easywork_path
+    easywork_path="$(command -v easywork 2>/dev/null || echo '')"
+    if [[ -n "$easywork_path" ]] && [[ -w "$easywork_path" ]]; then
+        backup_file "$easywork_path"
+        log_info "下载 ${latest_version}..."
+        if safe_download "${EASYWORK_RELEASE_URL}/${latest_version}/bin/easywork" "$easywork_path"; then
+            chmod +x "$easywork_path"
+            log_success "已更新到 ${latest_version}"
+        else
+            log_error "下载失败，已保留当前版本"
+            return $EXIT_NETWORK
+        fi
+    else
+        log_warn "无法自更新（无写入权限），请手动执行一键安装命令"
+        log_info "curl -sL ${EASYWORK_RAW_URL}/bin/easywork | bash -s -- install"
+        return $EXIT_PERMISSION
+    fi
+
+    # Re-run install with new version
+    log_info "应用最新配置..."
+    exec "$easywork_path" install --yes
+}
+
+# ─── CLI: Install ─────────────────────────────────────────────
+cmd_install() {
+    log_info "EasyWork ${EASYWORK_VERSION} — 安装开始"
+    echo ""
+
+    # Preflight check
+    if ! preflight_check; then
+        return $?
+    fi
+
+    acquire_lock || return $?
+
+    # Detect old installation (from previous scripts/ era)
+    if [[ -f "$HOME/.sh_config_custom" ]]; then
+        if ! grep -qF "# >>> EasyWork managed section" "$HOME/.sh_config_custom" 2>/dev/null; then
+            log_warn "检测到旧版 EasyWork 配置（无版本管理）"
+            if [[ "${DRY_RUN:-false}" == "true" ]]; then
+                log_info "[DRY-RUN] 将备份旧配置并迁移"
+            elif [[ "${YES_MODE:-false}" != "true" ]]; then
+                local answer
+                read -r -p "  是否迁移到新版本？旧配置将备份后替换。[Y/n] " answer
+                if [[ "$answer" =~ ^[Nn] ]]; then
+                    log_info "跳过 Shell 配置迁移，其他组件正常安装"
+                else
+                    backup_file "$HOME/.sh_config_custom"
+                    log_info "已备份旧配置"
+                fi
+            else
+                backup_file "$HOME/.sh_config_custom"
+            fi
+        fi
+    fi
+
+    # Determine install mode
+    local install_mode="fresh"
+    if manifest_exists; then
+        local installed_ver; installed_ver="$(manifest_get_version)"
+        if [[ "$installed_ver" == "$EASYWORK_VERSION" ]]; then
+            install_mode="same_version"
+        elif _semver_is_newer "$EASYWORK_VERSION" "$installed_ver"; then
+            install_mode="upgrade"
+        else
+            log_warn "已安装版本 (${installed_ver}) 高于当前 (${EASYWORK_VERSION})，可能是降级"
+            install_mode="downgrade"
+        fi
+    fi
+
+    case "$install_mode" in
+        fresh)
+            log_info "全新安装 EasyWork ${EASYWORK_VERSION}"
+            config_init
+            manifest_init "$EASYWORK_VERSION"
+            ;;
+        upgrade)
+            log_info "升级: ${installed_ver} → ${EASYWORK_VERSION}"
+            ;;
+        same_version)
+            log_info "已安装 ${EASYWORK_VERSION}，配置已是最新"
+            if [[ "${YES_MODE:-false}" != "true" ]]; then
+                local answer
+                read -r -p "  重新应用配置？[y/N] " answer
+                if [[ ! "$answer" =~ ^[Yy] ]]; then
+                    release_lock
+                    return $EXIT_SUCCESS
+                fi
+            else
+                release_lock
+                return $EXIT_SUCCESS
+            fi
+            log_info "刷新配置..."
+            ;;
+    esac
+
+    # Run all modules
+    local module_list
+    module_list="$(list_modules_sorted)"
+    local module_order=()
+    while IFS= read -r name; do
+        [[ -n "$name" ]] && module_order+=("$name")
+    done <<< "$module_list"
+    local sorted; sorted="$(for n in "${module_order[@]}"; do echo "${MODULE_PRIORITIES[$n]}|$n"; done | sort -t'|' -k1 -n | cut -d'|' -f2)"
+
+    for name in $sorted; do
+        echo ""
+        log_info "[${name}] 开始..."
+        # Re-source module file so the correct module_install is in scope
+        if [[ -f "${LIB_DIR}/${name}.sh" ]]; then
+            source "${LIB_DIR}/${name}.sh"
+        fi
+        if module_install; then
+            manifest_set_section "$name" \
+                "installed=true"
+            log_success "[${name}] 完成"
+        else
+            log_error "[${name}] 失败"
+        fi
+    done
+
+    # Update manifest version
+    if manifest_exists; then
+        local manifest_tmp; manifest_tmp="$(mktemp)"
+        sed "s/^easywork_version=.*/easywork_version=${EASYWORK_VERSION}/" "$MANIFEST_FILE" > "$manifest_tmp"
+        mv "$manifest_tmp" "$MANIFEST_FILE"
+    fi
+
+    echo ""
+    log_success "EasyWork ${EASYWORK_VERSION} 安装完成 🎉"
+    log_info "运行 easywork help 查看可用命令"
+
+    # Self-install: copy to PATH if this is first install via pipe
+    if $IS_PIPED && [[ "$install_mode" == "fresh" ]]; then
+        echo ""
+        log_info "安装 easywork 到系统路径..."
+        local install_path
+        if [[ -w "/usr/local/bin" ]]; then
+            install_path="/usr/local/bin/easywork"
+        elif [[ -d "$HOME/.local/bin" ]] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
+            install_path="$HOME/.local/bin/easywork"
+        fi
+        if [[ -n "${install_path:-}" ]]; then
+            if safe_download "${EASYWORK_RAW_URL}/bin/easywork" "$install_path" 2>/dev/null; then
+                chmod +x "$install_path"
+                if ! echo "$PATH" | grep -q "$(dirname "$install_path")"; then
+                    log_warn "$(dirname "$install_path") 不在 \$PATH 中"
+                    log_info "请添加以下行到你的 shell 配置: export PATH=\"$(dirname "$install_path"):\$PATH\""
+                fi
+                log_success "已安装 easywork 到 ${install_path}"
+                log_info "下次直接运行: easywork install"
+            fi
+        fi
+    fi
+
+    release_lock
+}
+
+# ─── CLI: Uninstall ───────────────────────────────────────────
+cmd_uninstall() {
+    local component="${1:-}"
+
+    if ! manifest_exists; then
+        log_error "未检测到安装记录（${MANIFEST_FILE} 不存在）"
+        log_info "如果之前使用过 EasyWork，请手动清理以下文件:"
+        log_info "  ~/.sh_config_custom (Shell 配置文件)"
+        log_info "  ~/.gitconfig (如果由 EasyWork 创建)"
+        log_info "  ~/.vimrc (如果由 EasyWork 创建)"
+        return $EXIT_ERROR
+    fi
+
+    acquire_lock || return $?
+
+    local targets=()
+    if [[ -n "$component" ]]; then
+        if ! manifest_section_exists "$component"; then
+            log_error "组件 '$component' 未安装"
+            release_lock
+            return $EXIT_ERROR
+        fi
+        targets=("$component")
+    else
+        # All installed components
+        local installed; installed="$(manifest_list_installed)"
+        if [[ -z "${installed// /}" ]]; then
+            log_info "没有已安装的组件"
+            # Still ask about config file
+            release_lock
+            _finalize_uninstall
+            return $EXIT_SUCCESS
+        fi
+        for name in $installed; do
+            targets+=("$name")
+        done
+    fi
+
+    # Confirm
+    if [[ "${YES_MODE:-false}" != "true" ]]; then
+        echo "将卸载以下组件:"
+        for t in "${targets[@]}"; do
+            echo "  - $t"
+        done
+        local answer
+        read -r -p "  确认卸载？[Y/n] " answer
+        if [[ "$answer" =~ ^[Nn] ]]; then
+            log_info "已取消卸载"
+            release_lock
+            return $EXIT_SUCCESS
+        fi
+    fi
+
+    echo ""
+    for t in "${targets[@]}"; do
+        log_info "[${t}] 卸载中..."
+        # Re-source module to ensure correct module_uninstall is in scope
+        if [[ -f "${LIB_DIR}/${t}.sh" ]]; then
+            source "${LIB_DIR}/${t}.sh"
+        fi
+        if module_uninstall; then
+            manifest_remove_section "$t"
+            log_success "[${t}] 已卸载"
+        else
+            log_warn "[${t}] 卸载时出现警告，继续..."
+        fi
+        echo ""
+    done
+
+    release_lock
+    _finalize_uninstall
+}
+
+_finalize_uninstall() {
+    local remaining; remaining="$(manifest_list_installed | tr '\n' ' ')"
+    if [[ -n "${remaining// /}" ]]; then
+        log_info "以下组件仍安装: ${remaining}"
+        log_info "配置文件和 manifest 已保留"
+    else
+        local answer="y"
+        if [[ "${YES_MODE:-false}" != "true" ]]; then
+            read -r -p "  保留 ~/.easywork.conf 以便将来使用？[Y/n] " answer
+        elif [[ "${REMOVE_CONFIG:-false}" == "true" ]]; then
+            answer="n"
+        else
+            answer="y"
+        fi
+
+        if [[ "$answer" =~ ^[Nn] ]]; then
+            rm -f "$(config_path)"
+            manifest_clear
+            log_success "EasyWork 已完全移除 ✓"
+        else
+            log_info "配置文件已保留: $(config_path)"
+            log_info "下次运行 easywork install 可直接复用身份信息"
+        fi
+    fi
+}
+
+# ─── CLI: Help ────────────────────────────────────────────────
+cmd_help() {
+    cat <<EOF
+EasyWork — 开发环境一键配置 ${EASYWORK_VERSION}
+
+用法:
+  easywork install                一键安装全部组件
+  easywork uninstall [组件]       卸载（无参数卸载全部）
+  easywork config                 查看配置
+  easywork config edit            编辑配置文件
+  easywork version                查看版本
+  easywork update                 检查并升级到最新版本
+  easywork help                   显示此帮助
+
+可用组件:
+$(list_modules)
+
+全局选项:
+  --dry-run             预览变更，不实际执行
+  --config <path>       指定配置文件路径
+  --yes, -y             跳过交互确认
+  --verbose, -v         详细输出
+
+项目: ${EASYWORK_WEB_URL}
+EOF
+}
+
+# ─── Main: Parse & Route ──────────────────────────────────────
+YES_MODE=false
+DRY_RUN=false
+VERBOSE=false
+REMOVE_CONFIG=false
+
+_parse_global_flags() {
+    _PARSED_ARGS=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --yes|-y)
+                YES_MODE=true
+                shift
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            --verbose|-v)
+                VERBOSE=true
+                shift
+                ;;
+            --config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            --keep-config)
+                REMOVE_CONFIG=false
+                shift
+                ;;
+            --remove-config)
+                REMOVE_CONFIG=true
+                shift
+                ;;
+            *)
+                _PARSED_ARGS+=("$1")
+                shift
+                ;;
+        esac
+    done
+}
+
+main() {
+    # Parse global flags (must NOT run in subshell — flags modify current shell)
+    _parse_global_flags "$@"
+    set -- "${_PARSED_ARGS[@]:-}"
+
+    local cmd="${1:-}"
+
+    # Pipe detection: if stdin is not a tty and no explicit command, default to install
+    if [[ -z "$cmd" ]]; then
+        if [[ ! -t 0 ]] || $IS_PIPED; then
+            cmd="install"
+        else
+            cmd="help"
+        fi
+    fi
+
+    # Discover modules (only when needed)
+    if [[ "$cmd" =~ ^(install|uninstall|help|shell|git|vim)$ ]] || ! [[ "$cmd" =~ ^(config|version|update)$ ]]; then
+        if [[ -n "$LIB_DIR" ]]; then
+            _discover_modules "$LIB_DIR"
+        fi
+    fi
+
+    case "$cmd" in
+        install)
+            cmd_install
+            ;;
+        uninstall)
+            shift 2>/dev/null || true
+            cmd_uninstall "$@"
+            ;;
+        config)
+            shift 2>/dev/null || true
+            cmd_config "$@"
+            ;;
+        version)
+            cmd_version
+            ;;
+        update)
+            cmd_update
+            ;;
+        help|--help|-h)
+            cmd_help
+            ;;
+        *)
+            # Try module route
+            if module_registered "$cmd"; then
+                # Re-source the correct module to get its functions
+                if [[ -f "${LIB_DIR}/${cmd}.sh" ]]; then
+                    source "${LIB_DIR}/${cmd}.sh"
+                fi
+                if declare -f module_install >/dev/null 2>&1; then
+                    acquire_lock || exit $?
+                    if module_install; then
+                        manifest_set_section "$cmd" "installed=true"
+                        log_success "[${cmd}] 完成"
+                    else
+                        log_error "[${cmd}] 失败"
+                    fi
+                    release_lock
+                else
+                    log_error "模块 '$cmd' 未实现 module_install"
+                fi
+            else
+                log_error "未知命令: $cmd"
+                echo ""
+                cmd_help
+                exit $EXIT_ERROR
+            fi
+            ;;
+    esac
+}
+
+main "$@"

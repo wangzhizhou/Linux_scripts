@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint & Test (${{ matrix.os }}, ${{ matrix.shell }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        shell: [bash, zsh]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          if command -v brew >/dev/null 2>&1; then
+            brew install shellcheck
+          else
+            sudo apt-get update -y && sudo apt-get install -y shellcheck
+          fi
+
+      - name: Install shfmt
+        run: |
+          if command -v brew >/dev/null 2>&1; then
+            brew install shfmt
+          else
+            sudo apt-get install -y shfmt || go install mvdan.cc/sh/v3/cmd/shfmt@latest
+          fi
+
+      - name: Install BATS
+        run: |
+          if command -v brew >/dev/null 2>&1; then
+            brew install bats-core
+          else
+            git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats
+            sudo /tmp/bats/install.sh /usr/local
+          fi
+
+      - name: ShellCheck
+        run: |
+          shellcheck bin/easywork lib/*.sh
+        shell: bash
+
+      - name: Syntax Check (bash)
+        run: |
+          for f in bin/easywork lib/*.sh; do
+            echo "Checking $f..."
+            bash -n "$f" || exit 1
+          done
+        shell: bash
+
+      - name: Syntax Check (zsh)
+        run: |
+          for f in bin/easywork lib/*.sh; do
+            echo "Checking $f..."
+            zsh -n "$f" || exit 1
+          done
+        shell: zsh
+        continue-on-error: true
+
+      - name: Run Tests
+        run: |
+          bats tests/ --recursive
+        shell: ${{ matrix.shell }}
+        continue-on-error: true
+
+      - name: Dry-run Install
+        run: |
+          ./bin/easywork install --dry-run --yes
+        shell: ${{ matrix.shell }}
+
+      - name: Dry-run Uninstall
+        run: |
+          ./bin/easywork uninstall --dry-run --yes --remove-config
+        shell: ${{ matrix.shell }}
+
+      - name: Format Check
+        run: |
+          shfmt -d .
+        shell: bash

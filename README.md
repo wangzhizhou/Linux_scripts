@@ -1,28 +1,27 @@
-# EasyWork(自用)
+# EasyWork
 
-快速配置个人工作环境
+一条命令，配置好你的开发环境。
 
-## Usage
-
-终端下运行下面命令：
+## 一键安装（macOS / Linux）
 
 ```bash
-eval "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/EasyWork/master/scripts/shell-config)"
+curl -sL https://raw.githubusercontent.com/EasyIndie/EasyWork/main/bin/easywork | bash -s -- install
 ```
 
-之后，重新打开终端后，可以使用快捷指令：
-- `cshell`重新配置shell
-- `cgit`配置git
-- `cvim`配置vim
-
-### 单独配置Git
+## 使用
 
 ```bash
-eval "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/EasyWork/master/scripts/git-config)"
+easywork install              # 一键配置全部
+easywork shell                # 配置 Shell（bash/zsh 自动适配）
+easywork git                  # 配置 Git
+easywork vim                  # 配置 Vim
+easywork config               # 查看配置
+easywork config edit          # 编辑配置
+easywork version              # 查看版本
+easywork update               # 检查并升级
+easywork uninstall            # 卸载
 ```
 
-### 单独配置Vim
+## 系统要求
 
-```bash
-eval "$(curl -sL https://raw.githubusercontent.com/wangzhizhou/EasyWork/master/scripts/vim-config)"
-```
+macOS / Linux，bash 或 zsh，需已安装 curl、git。
