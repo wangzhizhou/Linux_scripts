@@ -152,13 +152,23 @@ _select_identity() {
             log_error "需要填写 GIT_PERSONAL_NAME 和 GIT_PERSONAL_EMAIL 等字段"
             return 1
         else
-            log_warn "尚未配置 Git 身份信息，请设置:"
+            log_warn "尚未配置 Git 身份信息"
             echo ""
+            log_info "输入 Git 用户名和邮箱，或直接回车跳过 Git 配置"
+            echo ""
+
+            local skipped=false
 
             if $name_is_placeholder; then
                 local input_name=""
                 while true; do
-                    read -r -p "  Git 用户名: " input_name
+                    read -r -p "  Git 用户名 (回车跳过): " input_name
+                    if [[ -z "$input_name" ]]; then
+                        log_info "已跳过 Git 配置"
+                        GIT_USER_NAME=""
+                        GIT_USER_EMAIL=""
+                        return 0
+                    fi
                     if _validate_name "$input_name"; then
                         GIT_USER_NAME="$input_name"
                         break
@@ -170,7 +180,13 @@ _select_identity() {
             if $email_is_placeholder; then
                 local input_email=""
                 while true; do
-                    read -r -p "  Git 邮箱: " input_email
+                    read -r -p "  Git 邮箱 (回车跳过): " input_email
+                    if [[ -z "$input_email" ]]; then
+                        log_info "已跳过 Git 配置"
+                        GIT_USER_NAME=""
+                        GIT_USER_EMAIL=""
+                        return 0
+                    fi
                     if _validate_email "$input_email"; then
                         GIT_USER_EMAIL="$input_email"
                         break
@@ -386,6 +402,12 @@ module_install() {
     # Select identity
     if ! _select_identity; then
         return $EXIT_ERROR
+    fi
+
+    # User chose to skip git configuration
+    if [[ -z "${GIT_USER_NAME:-}" ]]; then
+        log_info "已跳过 Git 配置"
+        return 0
     fi
 
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
