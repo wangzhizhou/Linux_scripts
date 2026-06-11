@@ -66,7 +66,7 @@ setup_mocks() {
 
     # Mock sudo
     function sudo() {
-        shift 2>/dev/null || true
+        shift 2> /dev/null || true
         echo "MOCK_SUDO: $*" >> "${TEST_HOME}/mock_sudo.log"
         return 0
     }
@@ -89,7 +89,7 @@ setup_mocks() {
         return 0
     }
 
-    export -f curl git vim brew sudo node networksetup scutil 2>/dev/null || true
+    export -f curl git vim brew sudo node networksetup scutil 2> /dev/null || true
 }
 
 teardown_mocks() {

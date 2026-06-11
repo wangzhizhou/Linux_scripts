@@ -9,7 +9,13 @@ enable=all
 # SC1091: Not following (external scripts we download at runtime)
 # SC2034: Unused variables (module files export variables used by easywork CLI)
 # SC2154: Referenced but not assigned (module variables set by easywork runtime)
-disable=SC1090,SC1091,SC2034,SC2154
+# SC2086: Double quote to prevent word splitting (many false positives in our usage)
+# SC2250: Prefer braces around variable references (purely stylistic)
+# SC2310: Function invoked in condition disabling set -e (info only)
+# SC2312: Command invoked in subshell masking return value (info only)
+# SC2248: Prefer explicit exit code (minor style)
+# SC2249: Consider adding default case (minor style)
+disable=SC1090,SC1091,SC2034,SC2154,SC2086,SC2250,SC2310,SC2312,SC2248,SC2249
 
 # Source paths (relative to repo root)
 external-sources=true

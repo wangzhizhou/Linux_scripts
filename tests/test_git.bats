@@ -8,7 +8,7 @@ setup() {
     source "${EASYWORK_ROOT}/lib/common.sh"
     source "${EASYWORK_ROOT}/lib/git.sh"
     # Setup test config
-    cat > "$CONFIG_FILE" <<'EOF'
+    cat > "$CONFIG_FILE" << 'EOF'
 GIT_PERSONAL_NAME="Test User"
 GIT_PERSONAL_EMAIL="test@example.com"
 GIT_WORK_NAME="Work User"

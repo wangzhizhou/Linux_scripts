@@ -11,7 +11,7 @@ VIMRC_FILE="$HOME/.vimrc"
 VIM_DIR="$HOME/.vim"
 
 module_check() {
-    [[ -f "$VIMRC_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2>/dev/null
+    [[ -f "$VIMRC_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2> /dev/null
 }
 
 module_status() {
@@ -30,17 +30,18 @@ _ensure_node() {
     fi
 
     log_info "安装 Node.js..."
-    local os_type; os_type="$(detect_os)"
+    local os_type
+    os_type="$(detect_os)"
 
     if [[ "$os_type" == "macos" ]] && has_cmd brew; then
-        brew install node 2>/dev/null && return 0
+        brew install node 2> /dev/null && return 0
         log_info "Homebrew 安装失败，尝试 nvm..."
     fi
 
     # Fallback: nvm
     export NVM_DIR="$HOME/.nvm"
     if [[ ! -d "$NVM_DIR" ]]; then
-        safe_download "https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh" | bash 2>/dev/null || {
+        safe_download "https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh" | bash 2> /dev/null || {
             log_warn "nvm 下载失败"
             return 1
         }
@@ -48,8 +49,11 @@ _ensure_node() {
     if [[ -s "$NVM_DIR/nvm.sh" ]]; then
         # shellcheck source=/dev/null
         . "$NVM_DIR/nvm.sh"
-        nvm install --lts 2>/dev/null || { log_warn "nvm install 失败"; return 1; }
-        nvm alias default 'lts/*' 2>/dev/null || true
+        nvm install --lts 2> /dev/null || {
+            log_warn "nvm install 失败"
+            return 1
+        }
+        nvm alias default 'lts/*' 2> /dev/null || true
     fi
 
     if has_cmd node; then
@@ -63,30 +67,31 @@ _ensure_node() {
 # ─── Internal: Install ripgrep ────────────────────────────────
 _ensure_ripgrep() {
     if has_cmd rg; then
-        log_info "ripgrep 已安装: $(rg --version 2>/dev/null | head -1)"
+        log_info "ripgrep 已安装: $(rg --version 2> /dev/null | head -1)"
         return 0
     fi
 
     log_info "安装 ripgrep..."
-    local pkg; pkg="$(detect_pkg_manager)"
+    local pkg
+    pkg="$(detect_pkg_manager)"
 
     case "$pkg" in
-        brew)    brew install ripgrep 2>/dev/null ;;
-        apt-get) sudo apt-get update -y && sudo apt-get install -y ripgrep 2>/dev/null ;;
-        dnf)     sudo dnf install -y ripgrep 2>/dev/null ;;
-        yum)     sudo yum install -y ripgrep 2>/dev/null ;;
-        pacman)  sudo pacman -S --noconfirm ripgrep 2>/dev/null ;;
-        zypper)  sudo zypper install -y ripgrep 2>/dev/null ;;
-        apk)     sudo apk add ripgrep 2>/dev/null ;;
+        brew) brew install ripgrep 2> /dev/null ;;
+        apt-get) sudo apt-get update -y && sudo apt-get install -y ripgrep 2> /dev/null ;;
+        dnf) sudo dnf install -y ripgrep 2> /dev/null ;;
+        yum) sudo yum install -y ripgrep 2> /dev/null ;;
+        pacman) sudo pacman -S --noconfirm ripgrep 2> /dev/null ;;
+        zypper) sudo zypper install -y ripgrep 2> /dev/null ;;
+        apk) sudo apk add ripgrep 2> /dev/null ;;
         *)
             if has_cmd cargo; then
-                cargo install ripgrep 2>/dev/null && export PATH="$HOME/.cargo/bin:$PATH"
+                cargo install ripgrep 2> /dev/null && export PATH="$HOME/.cargo/bin:$PATH"
             fi
             ;;
     esac
 
     if has_cmd rg; then
-        log_success "ripgrep: $(rg --version 2>/dev/null | head -1)"
+        log_success "ripgrep: $(rg --version 2> /dev/null | head -1)"
         return 0
     fi
     log_warn "ripgrep 安装失败，FZF :Rg 命令不可用"
@@ -103,10 +108,10 @@ _ensure_vim_plug() {
 
     log_info "安装 vim-plug..."
     safe_download "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim" \
-        --create-dirs -o "$plug_file" 2>/dev/null || {
+        --create-dirs -o "$plug_file" 2> /dev/null || {
         # curl --create-dirs equivalent
         mkdir -p "$(dirname "$plug_file")"
-        safe_download "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim" "$plug_file" 2>/dev/null || {
+        safe_download "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim" "$plug_file" 2> /dev/null || {
             log_warn "vim-plug 下载失败"
             return 1
         }
@@ -117,7 +122,7 @@ _ensure_vim_plug() {
 
 # ─── Internal: Generate Vim Config ────────────────────────────
 _generate_vimrc() {
-    cat <<'VIMRC'
+    cat << 'VIMRC'
 
 " ── Basic Editing Experience ──
 set backspace=indent,eol,start
@@ -280,25 +285,26 @@ module_install() {
 
     # Backup existing vimrc (if not managed by easywork)
     local bak
-    if [[ -f "$VIMRC_FILE" ]] && ! grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2>/dev/null; then
+    if [[ -f "$VIMRC_FILE" ]] && ! grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2> /dev/null; then
         bak="$(backup_file "$VIMRC_FILE")"
         log_info "已备份现有 ~/.vimrc → ${bak}"
     fi
 
     # Generate vim config
-    local config_content; config_content="$(_generate_vimrc)"
+    local config_content
+    config_content="$(_generate_vimrc)"
     replace_managed_section "$VIMRC_FILE" "$EASYWORK_VERSION" "$config_content"
     log_success "已生成: $VIMRC_FILE"
 
     # Create undo directory
-    mkdir -p "$VIM_DIR/undo" 2>/dev/null || true
+    mkdir -p "$VIM_DIR/undo" 2> /dev/null || true
 
     # Install vim plugins
     if has_cmd vim; then
         log_info "安装 Vim 插件..."
         # Suppress vim errors during headless plugin install
-        vim +PlugClean! +qall 2>/dev/null || true
-        vim +PlugInstall +qall 2>/dev/null || true
+        vim +PlugClean! +qall 2> /dev/null || true
+        vim +PlugInstall +qall 2> /dev/null || true
         log_success "Vim 插件安装完成"
     else
         log_warn "未找到 vim，请手动运行 :PlugInstall 安装插件"
@@ -324,7 +330,8 @@ module_uninstall() {
     fi
 
     # Restore backup
-    local bak_file; bak_file="$(manifest_read 'vim_vimrc_backup')"
+    local bak_file
+    bak_file="$(manifest_read 'vim_vimrc_backup')"
     if [[ -n "$bak_file" ]] && [[ -f "$bak_file" ]]; then
         local answer="y"
         if [[ "${YES_MODE:-false}" != "true" ]]; then
@@ -336,7 +343,7 @@ module_uninstall() {
         fi
     else
         # Remove managed section
-        if [[ -f "$VIMRC_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2>/dev/null; then
+        if [[ -f "$VIMRC_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$VIMRC_FILE" 2> /dev/null; then
             rm -f "$VIMRC_FILE"
             log_success "已删除: $VIMRC_FILE"
         fi

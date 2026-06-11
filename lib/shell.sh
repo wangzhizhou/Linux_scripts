@@ -10,12 +10,13 @@ MODULE_PRIORITY=10
 SH_CONFIG_FILE="$HOME/.sh_config_custom"
 
 module_check() {
-    [[ -f "$SH_CONFIG_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$SH_CONFIG_FILE" 2>/dev/null
+    [[ -f "$SH_CONFIG_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$SH_CONFIG_FILE" 2> /dev/null
 }
 
 module_status() {
     if module_check; then
-        local shell_type; shell_type="$(manifest_read 'shell_type' 'bash/zsh')"
+        local shell_type
+        shell_type="$(manifest_read 'shell_type' 'bash/zsh')"
         echo "shell: 已安装 (${shell_type}) — ${SH_CONFIG_FILE}"
     else
         echo "shell: 未安装"
@@ -24,15 +25,17 @@ module_status() {
 
 # ─── Internal: detect shell rc file ───────────────────────────
 _detect_shell_rc() {
-    local os_type; os_type="$(detect_os)"
-    local sh_type; sh_type="$(detect_shell)"
+    local os_type
+    os_type="$(detect_os)"
+    local sh_type
+    sh_type="$(detect_shell)"
 
     case "$os_type" in
         macos)
             case "$sh_type" in
-                zsh)  echo "$HOME/.zshrc" ;;
+                zsh) echo "$HOME/.zshrc" ;;
                 bash) echo "$HOME/.bash_profile" ;;
-                *)    echo "$HOME/.bashrc" ;;
+                *) echo "$HOME/.bashrc" ;;
             esac
             ;;
         linux)
@@ -46,8 +49,10 @@ _detect_shell_rc() {
 
 # ─── Internal: install Oh My Zsh ──────────────────────────────
 _install_ohmyzsh() {
-    local sh_type; sh_type="$(detect_shell)"
-    local os_type; os_type="$(detect_os)"
+    local sh_type
+    sh_type="$(detect_shell)"
+    local os_type
+    os_type="$(detect_os)"
 
     if [[ "$sh_type" != "zsh" ]]; then
         return 0
@@ -60,7 +65,7 @@ _install_ohmyzsh() {
 
     log_info "安装 Oh My Zsh..."
     RUNZSH="no" KEEP_ZSHRC="yes" CHSH="no" \
-        sh -c "$(safe_download 'https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh')" 2>/dev/null || {
+        sh -c "$(safe_download 'https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh')" 2> /dev/null || {
         log_warn "Oh My Zsh 安装失败，将跳过（不影响其他配置）"
         return 0
     }
@@ -69,7 +74,7 @@ _install_ohmyzsh() {
 
 # ─── Internal: generate shell config content ──────────────────
 _generate_shell_config() {
-    cat <<'SHELLCONF'
+    cat << 'SHELLCONF'
 
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
@@ -209,9 +214,12 @@ SHELLCONF
 
 # ─── Module: Install ──────────────────────────────────────────
 module_install() {
-    local os_type; os_type="$(detect_os)"
-    local sh_type; sh_type="$(detect_shell)"
-    local rc_file; rc_file="$(_detect_shell_rc)"
+    local os_type
+    os_type="$(detect_os)"
+    local sh_type
+    sh_type="$(detect_shell)"
+    local rc_file
+    rc_file="$(_detect_shell_rc)"
 
     log_info "系统: $os_type, Shell: $sh_type"
     log_info "Shell 配置文件: $rc_file"
@@ -228,7 +236,8 @@ module_install() {
     fi
 
     # Generate shell config with managed section
-    local config_content; config_content="$(_generate_shell_config)"
+    local config_content
+    config_content="$(_generate_shell_config)"
 
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
         log_info "[DRY-RUN] 将写入 Shell 配置到: $SH_CONFIG_FILE"
@@ -241,7 +250,7 @@ module_install() {
 
     # Inject source line into rc file
     local source_line="source $SH_CONFIG_FILE  # EasyWork shell config"
-    if ! grep -qF "source $SH_CONFIG_FILE" "$rc_file" 2>/dev/null; then
+    if ! grep -qF "source $SH_CONFIG_FILE" "$rc_file" 2> /dev/null; then
         echo "" >> "$rc_file"
         echo "$source_line" >> "$rc_file"
         log_success "已注入 source 至: $rc_file"
@@ -259,7 +268,7 @@ module_install() {
     # Source the config in current session
     if [[ -f "$rc_file" ]]; then
         # shellcheck disable=SC1090
-        source "$rc_file" 2>/dev/null || true
+        source "$rc_file" 2> /dev/null || true
     fi
 
     return 0
@@ -267,7 +276,8 @@ module_install() {
 
 # ─── Module: Uninstall ────────────────────────────────────────
 module_uninstall() {
-    local rc_file; rc_file="$(_detect_shell_rc)"
+    local rc_file
+    rc_file="$(_detect_shell_rc)"
 
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
         log_info "[DRY-RUN] 将从 $rc_file 移除 source 行"
@@ -277,8 +287,9 @@ module_uninstall() {
 
     # Remove source line from rc file
     if [[ -f "$rc_file" ]]; then
-        local tmpfile; tmpfile="${rc_file}.tmp.$$"
-        grep -vF "source $SH_CONFIG_FILE" "$rc_file" > "$tmpfile" 2>/dev/null || true
+        local tmpfile
+        tmpfile="${rc_file}.tmp.$$"
+        grep -vF "source $SH_CONFIG_FILE" "$rc_file" > "$tmpfile" 2> /dev/null || true
         mv "$tmpfile" "$rc_file"
         log_success "已从 $rc_file 移除 source 行"
     fi

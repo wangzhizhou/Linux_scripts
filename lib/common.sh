@@ -21,25 +21,39 @@ if [[ -t 1 ]] && [[ "${TERM:-dumb}" != "dumb" ]] && [[ -z "${NO_COLOR:-}" ]]; th
     COLOR_ENABLED=true
 fi
 
-C_BLACK=''; C_RED=''; C_GREEN=''; C_YELLOW=''; C_BLUE=''; C_PURPLE=''; C_CYAN=''; C_WHITE=''; C_RESET=''
+C_BLACK=''
+C_RED=''
+C_GREEN=''
+C_YELLOW=''
+C_BLUE=''
+C_PURPLE=''
+C_CYAN=''
+C_WHITE=''
+C_RESET=''
 if $COLOR_ENABLED; then
-    C_BLACK=$'\e[30m'; C_RED=$'\e[31m'; C_GREEN=$'\e[32m'; C_YELLOW=$'\e[33m'
-    C_BLUE=$'\e[34m'; C_PURPLE=$'\e[35m'; C_CYAN=$'\e[36m'; C_WHITE=$'\e[37m'
+    C_BLACK=$'\e[30m'
+    C_RED=$'\e[31m'
+    C_GREEN=$'\e[32m'
+    C_YELLOW=$'\e[33m'
+    C_BLUE=$'\e[34m'
+    C_PURPLE=$'\e[35m'
+    C_CYAN=$'\e[36m'
+    C_WHITE=$'\e[37m'
     C_RESET=$'\e[0m'
 fi
 
 # ─── Logging ──────────────────────────────────────────────────
-log_info()    { printf "  %s[INFO]%s %s\n"    "${C_BLUE}"   "${C_RESET}" "$*"; }
-log_success() { printf "  %s[OK]%s %s\n"      "${C_GREEN}"  "${C_RESET}" "$*"; }
-log_warn()    { printf "  %s[WARN]%s %s\n"    "${C_YELLOW}" "${C_RESET}" "$*" >&2; }
-log_error()   { printf "  %s[ERROR]%s %s\n"   "${C_RED}"    "${C_RESET}" "$*" >&2; }
+log_info() { printf "  %s[INFO]%s %s\n" "${C_BLUE}" "${C_RESET}" "$*"; }
+log_success() { printf "  %s[OK]%s %s\n" "${C_GREEN}" "${C_RESET}" "$*"; }
+log_warn() { printf "  %s[WARN]%s %s\n" "${C_YELLOW}" "${C_RESET}" "$*" >&2; }
+log_error() { printf "  %s[ERROR]%s %s\n" "${C_RED}" "${C_RESET}" "$*" >&2; }
 
 # ─── System Detection ─────────────────────────────────────────
 detect_os() {
     case "$(uname -s)" in
         Darwin) echo "macos" ;;
-        Linux)  echo "linux" ;;
-        *)      echo "unknown" ;;
+        Linux) echo "linux" ;;
+        *) echo "unknown" ;;
     esac
 }
 
@@ -48,35 +62,35 @@ detect_shell() {
 }
 
 detect_pkg_manager() {
-    if command -v brew >/dev/null 2>&1; then
+    if command -v brew > /dev/null 2>&1; then
         echo "brew"
-    elif command -v apt-get >/dev/null 2>&1; then
+    elif command -v apt-get > /dev/null 2>&1; then
         echo "apt-get"
-    elif command -v dnf >/dev/null 2>&1; then
+    elif command -v dnf > /dev/null 2>&1; then
         echo "dnf"
-    elif command -v yum >/dev/null 2>&1; then
+    elif command -v yum > /dev/null 2>&1; then
         echo "yum"
-    elif command -v pacman >/dev/null 2>&1; then
+    elif command -v pacman > /dev/null 2>&1; then
         echo "pacman"
-    elif command -v zypper >/dev/null 2>&1; then
+    elif command -v zypper > /dev/null 2>&1; then
         echo "zypper"
-    elif command -v apk >/dev/null 2>&1; then
+    elif command -v apk > /dev/null 2>&1; then
         echo "apk"
     else
         echo "unknown"
     fi
 }
 
-has_cmd() { command -v "$1" >/dev/null 2>&1; }
+has_cmd() { command -v "$1" > /dev/null 2>&1; }
 
 # ─── Network ──────────────────────────────────────────────────
 check_network() {
     local target="${1:-github.com}"
     local timeout="${2:-5}"
     if has_cmd curl; then
-        curl -s --connect-timeout "$timeout" "https://${target}" >/dev/null 2>&1
+        curl -s --connect-timeout "$timeout" "https://${target}" > /dev/null 2>&1
     elif has_cmd wget; then
-        wget -q --timeout="$timeout" -O /dev/null "https://${target}" 2>/dev/null
+        wget -q --timeout="$timeout" -O /dev/null "https://${target}" 2> /dev/null
     else
         return 1
     fi
@@ -97,7 +111,8 @@ safe_download() {
 backup_file() {
     local file="$1"
     if [[ -f "$file" ]]; then
-        local ts; ts="$(date +%Y%m%dT%H%M%S)"
+        local ts
+        ts="$(date +%Y%m%dT%H%M%S)"
         local bak="${file}.bak.${ts}"
         cp -p "$file" "$bak"
         echo "$bak"
@@ -128,8 +143,10 @@ replace_managed_section() {
     local file="$1"
     local version="$2"
     local content="$3"
-    local begin_marker;  begin_marker="$(managed_section_begin "$version")"
-    local end_marker;    end_marker="$(managed_section_end)"
+    local begin_marker
+    begin_marker="$(managed_section_begin "$version")"
+    local end_marker
+    end_marker="$(managed_section_end)"
 
     if [[ ! -f "$file" ]]; then
         # File doesn't exist — create with managed section
@@ -141,9 +158,10 @@ replace_managed_section() {
         return 0
     fi
 
-    if grep -qF "$begin_marker" "$file" 2>/dev/null; then
+    if grep -qF "$begin_marker" "$file" 2> /dev/null; then
         # Managed section exists — replace it
-        local tmpfile; tmpfile="${file}.tmp.$$"
+        local tmpfile
+        tmpfile="${file}.tmp.$$"
         local in_section=false
         while IFS= read -r line; do
             if [[ "$line" == "$begin_marker" ]]; then
@@ -164,7 +182,8 @@ replace_managed_section() {
         mv "$tmpfile" "$file"
     else
         # No managed section — prepend
-        local tmpfile; tmpfile="${file}.tmp.$$"
+        local tmpfile
+        tmpfile="${file}.tmp.$$"
         {
             echo "$begin_marker"
             echo "$content"
@@ -187,7 +206,8 @@ manifest_read() {
     local key="$1"
     local default="${2:-}"
     if manifest_exists; then
-        local val; val="$(grep -E "^${key}=" "$MANIFEST_FILE" 2>/dev/null | head -1 | cut -d= -f2-)"
+        local val
+        val="$(grep -E "^${key}=" "$MANIFEST_FILE" 2> /dev/null | head -1 | cut -d= -f2-)"
         echo "${val:-$default}"
     else
         echo "$default"
@@ -200,7 +220,7 @@ manifest_get_version() {
 
 manifest_section_exists() {
     local section="$1"
-    manifest_exists && grep -qF "[$section]" "$MANIFEST_FILE" 2>/dev/null
+    manifest_exists && grep -qF "[$section]" "$MANIFEST_FILE" 2> /dev/null
 }
 
 manifest_section_installed() {
@@ -215,7 +235,7 @@ manifest_list_installed() {
 
 manifest_init() {
     local version="$1"
-    cat > "$MANIFEST_FILE" <<EOF
+    cat > "$MANIFEST_FILE" << EOF
 # EasyWork Manifest — auto-generated, do not edit
 easywork_version=${version}
 install_date=$(date +%Y-%m-%dT%H:%M:%S%z)
@@ -224,7 +244,8 @@ EOF
 
 manifest_write() {
     local manifest_data="$1"
-    local tmpfile; tmpfile="${MANIFEST_FILE}.tmp.$$"
+    local tmpfile
+    tmpfile="${MANIFEST_FILE}.tmp.$$"
     echo "$manifest_data" > "$tmpfile"
     mv "$tmpfile" "$MANIFEST_FILE"
 }
@@ -286,7 +307,7 @@ manifest_remove_section() {
     done < "$MANIFEST_FILE"
 
     # Remove trailing blank lines
-    new_manifest="$(echo "$new_manifest" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' 2>/dev/null || echo "$new_manifest")"
+    new_manifest="$(echo "$new_manifest" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' 2> /dev/null || echo "$new_manifest")"
     echo "$new_manifest" > "$MANIFEST_FILE"
 }
 
@@ -317,7 +338,7 @@ config_init() {
             log_info "请编辑此文件填入你的个人信息: easywork config edit"
         else
             log_warn "配置模板 $CONFIG_EXAMPLE 不存在，创建空配置"
-            cat > "$CONFIG_FILE" <<'EOC'
+            cat > "$CONFIG_FILE" << 'EOC'
 # EasyWork 配置文件
 GIT_PERSONAL_NAME="Your Name"
 GIT_PERSONAL_EMAIL="your@email.com"
@@ -346,7 +367,10 @@ config_edit() {
     local editor="${EDITOR:-}"
     if [[ -z "$editor" ]]; then
         for e in vim nano vi; do
-            if has_cmd "$e"; then editor="$e"; break; fi
+            if has_cmd "$e"; then
+                editor="$e"
+                break
+            fi
         done
     fi
     if [[ -z "$editor" ]]; then
@@ -403,24 +427,26 @@ acquire_lock() {
 
     # Try flock (Linux) first
     if has_cmd flock; then
-        exec {LOCK_FD}>"$LOCK_FILE"
-        if flock -w "$timeout" "$LOCK_FD" 2>/dev/null; then
+        exec {LOCK_FD}> "$LOCK_FILE"
+        if flock -w "$timeout" "$LOCK_FD" 2> /dev/null; then
             return 0
         fi
     fi
 
     # Try shlock (macOS)
     if has_cmd shlock; then
-        if shlock -f "$LOCK_FILE" -p $$ 2>/dev/null; then
+        if shlock -f "$LOCK_FILE" -p $$ 2> /dev/null; then
             return 0
         fi
     fi
 
     # Fallback: mkdir atomic operation
-    local start; start=$(date +%s)
-    while ! mkdir "${LOCK_FILE}.dir" 2>/dev/null; do
-        local now; now=$(date +%s)
-        if (( now - start >= timeout )); then
+    local start
+    start=$(date +%s)
+    while ! mkdir "${LOCK_FILE}.dir" 2> /dev/null; do
+        local now
+        now=$(date +%s)
+        if ((now - start >= timeout)); then
             log_error "无法获取锁，可能有另一个 easywork 实例正在运行"
             return $EXIT_LOCK
         fi
@@ -432,13 +458,13 @@ acquire_lock() {
 
 release_lock() {
     if [[ -n "${LOCK_FD:-}" ]]; then
-        flock -u "$LOCK_FD" 2>/dev/null || true
-        exec {LOCK_FD}>&- 2>/dev/null || true
+        flock -u "$LOCK_FD" 2> /dev/null || true
+        exec {LOCK_FD}>&- 2> /dev/null || true
     fi
     if [[ -d "${LOCK_FILE}.dir" ]]; then
-        rmdir "${LOCK_FILE}.dir" 2>/dev/null || true
+        rmdir "${LOCK_FILE}.dir" 2> /dev/null || true
     fi
-    rm -f "$LOCK_FILE" 2>/dev/null || true
+    rm -f "$LOCK_FILE" 2> /dev/null || true
     LOCK_FD=""
 }
 
@@ -462,9 +488,9 @@ preflight_check() {
     local missing=()
     local optional_missing=()
 
-    has_cmd curl  || missing+=("curl")
-    has_cmd git   || missing+=("git")
-    has_cmd bash  || missing+=("bash")
+    has_cmd curl || missing+=("curl")
+    has_cmd git || missing+=("git")
+    has_cmd bash || missing+=("bash")
 
     if ! has_cmd zsh; then
         optional_missing+=("zsh (Oh My Zsh 将跳过)")

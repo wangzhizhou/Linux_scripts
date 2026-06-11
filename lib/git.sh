@@ -10,13 +10,15 @@ MODULE_PRIORITY=20
 GIT_CONFIG_FILE="$HOME/.gitconfig"
 
 module_check() {
-    [[ -f "$GIT_CONFIG_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$GIT_CONFIG_FILE" 2>/dev/null
+    [[ -f "$GIT_CONFIG_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$GIT_CONFIG_FILE" 2> /dev/null
 }
 
 module_status() {
     if module_check; then
-        local name; name="$(git config --global user.name 2>/dev/null || echo 'unknown')"
-        local email; email="$(git config --global user.email 2>/dev/null || echo 'unknown')"
+        local name
+        name="$(git config --global user.name 2> /dev/null || echo 'unknown')"
+        local email
+        email="$(git config --global user.email 2> /dev/null || echo 'unknown')"
         echo "git: 已安装 — ${name} <${email}>"
     else
         echo "git: 未安装"
@@ -37,7 +39,7 @@ _validate_name() {
     # Must not contain dangerous shell metacharacters
     local pattern
     pattern='[$`\|&;()]'
-    if echo "$name" | grep -qE "$pattern" 2>/dev/null; then
+    if echo "$name" | grep -qE "$pattern" 2> /dev/null; then
         return 1
     fi
     return 0
@@ -46,8 +48,10 @@ _validate_name() {
 # ─── Show Git Config ──────────────────────────────────────────
 _show_current_git_config() {
     local scope="${1:-global}"
-    local name; name="$(git config --"$scope" user.name 2>/dev/null || echo '(未设置)')"
-    local email; email="$(git config --"$scope" user.email 2>/dev/null || echo '(未设置)')"
+    local name
+    name="$(git config --"$scope" user.name 2> /dev/null || echo '(未设置)')"
+    local email
+    email="$(git config --"$scope" user.email 2> /dev/null || echo '(未设置)')"
     echo "  Git 用户名: $name"
     echo "  Git 邮箱:   $email"
 }
@@ -112,7 +116,7 @@ _select_identity() {
 
 # ─── Generate Git Config ──────────────────────────────────────
 _generate_git_config() {
-    cat <<'GITCONF'
+    cat << 'GITCONF'
 [user]
     name = __GIT_USER_NAME__
     email = __GIT_USER_EMAIL__
@@ -289,13 +293,14 @@ module_install() {
 
     # Backup existing gitconfig (if not already backed up by easywork)
     local bak
-    if [[ -f "$GIT_CONFIG_FILE" ]] && ! grep -qF "# >>> EasyWork managed section" "$GIT_CONFIG_FILE" 2>/dev/null; then
+    if [[ -f "$GIT_CONFIG_FILE" ]] && ! grep -qF "# >>> EasyWork managed section" "$GIT_CONFIG_FILE" 2> /dev/null; then
         bak="$(backup_file "$GIT_CONFIG_FILE")"
         log_info "已备份现有 ~/.gitconfig → ${bak}"
     fi
 
     # Generate config with placeholders replaced
-    local config_content; config_content="$(_generate_git_config)"
+    local config_content
+    config_content="$(_generate_git_config)"
     config_content="${config_content//__GIT_USER_NAME__/${GIT_USER_NAME}}"
     config_content="${config_content//__GIT_USER_EMAIL__/${GIT_USER_EMAIL}}"
 
@@ -326,7 +331,8 @@ module_uninstall() {
     fi
 
     # Try to restore backup
-    local config_backup; config_backup="$(manifest_read 'git_config_backup')"
+    local config_backup
+    config_backup="$(manifest_read 'git_config_backup')"
     if [[ -n "$config_backup" ]] && [[ -f "$config_backup" ]]; then
         local answer="y"
         if [[ "${YES_MODE:-false}" != "true" ]]; then
@@ -338,7 +344,7 @@ module_uninstall() {
         fi
     else
         # No backup — just remove the managed section
-        if [[ -f "$GIT_CONFIG_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$GIT_CONFIG_FILE" 2>/dev/null; then
+        if [[ -f "$GIT_CONFIG_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$GIT_CONFIG_FILE" 2> /dev/null; then
             local answer="y"
             if [[ "${YES_MODE:-false}" != "true" ]]; then
                 read -r -p "  移除 EasyWork 写入的 Git 配置？[Y/n] " answer

@@ -8,7 +8,7 @@ setup() {
     source "${EASYWORK_ROOT}/lib/common.sh"
     # Setup example config for init tests
     mkdir -p "${TEST_HOME}/example_dir"
-    cat > "${TEST_HOME}/example_dir/easywork.conf.example" <<'EOF'
+    cat > "${TEST_HOME}/example_dir/easywork.conf.example" << 'EOF'
 GIT_PERSONAL_NAME="Test Person"
 GIT_PERSONAL_EMAIL="test@example.com"
 GIT_WORK_NAME="Test Work"

@@ -40,7 +40,7 @@ else
     _TMPDIR="$(mktemp -d)"
     # shellcheck disable=SC2064
     trap "rm -rf ${_TMPDIR}" EXIT
-    safe_download "${EASYWORK_RAW_URL}/lib/common.sh" "$_TMPDIR/common.sh" 2>/dev/null || {
+    safe_download "${EASYWORK_RAW_URL}/lib/common.sh" "$_TMPDIR/common.sh" 2> /dev/null || {
         echo "[ERROR] 无法下载 common.sh，请检查网络连接"
         exit 2
     }
@@ -59,7 +59,7 @@ _discover_modules() {
     # Download remote modules if piped
     if $IS_PIPED && [[ "$lib_dir" == "$_TMPDIR" ]]; then
         for mod in shell git vim; do
-            safe_download "${EASYWORK_RAW_URL}/lib/${mod}.sh" "$_TMPDIR/${mod}.sh" 2>/dev/null || true
+            safe_download "${EASYWORK_RAW_URL}/lib/${mod}.sh" "$_TMPDIR/${mod}.sh" 2> /dev/null || true
         done
     fi
 
@@ -87,9 +87,11 @@ cmd_version() {
     if manifest_exists; then
         echo "配置文件: $(config_path)"
         echo "安装日期: $(manifest_read 'install_date' 'unknown')"
-        local installed; installed="$(manifest_list_installed | tr '\n' ' ')"
+        local installed
+        installed="$(manifest_list_installed | tr '\n' ' ')"
         if [[ -n "${installed// /}" ]]; then
-            local shell_type; shell_type="$(manifest_read 'shell_type' '')"
+            local shell_type
+            shell_type="$(manifest_read 'shell_type' '')"
             if [[ -n "$shell_type" ]]; then
                 installed="${installed//shell/shell (${shell_type})}"
             fi
@@ -109,7 +111,7 @@ cmd_config() {
         edit)
             config_edit
             ;;
-        show|*)
+        show | *)
             config_show
             ;;
     esac
@@ -120,13 +122,17 @@ cmd_config() {
 _semver_compare() {
     local IFS=.
     local i
-    local a; IFS=. read -ra a <<< "${1:-0.0.0}"
-    local b; IFS=. read -ra b <<< "${2:-0.0.0}"
+    local a
+    IFS=. read -ra a <<< "${1:-0.0.0}"
+    local b
+    IFS=. read -ra b <<< "${2:-0.0.0}"
     for i in 0 1 2; do
-        local ai=${a[$i]:-0}; ai=${ai//[!0-9]/}
-        local bi=${b[$i]:-0}; bi=${bi//[!0-9]/}
-        if (( ai > bi )); then return 1; fi
-        if (( ai < bi )); then return 2; fi
+        local ai=${a[$i]:-0}
+        ai=${ai//[!0-9]/}
+        local bi=${b[$i]:-0}
+        bi=${bi//[!0-9]/}
+        if ((ai > bi)); then return 1; fi
+        if ((ai < bi)); then return 2; fi
     done
     return 0
 }
@@ -143,14 +149,14 @@ cmd_update() {
 
     # Fetch latest release info from GitHub API
     local api_response
-    api_response="$(safe_download "${EASYWORK_API_URL}" -H "Accept: application/vnd.github+json" 2>/dev/null || true)"
+    api_response="$(safe_download "${EASYWORK_API_URL}" -H "Accept: application/vnd.github+json" 2> /dev/null || true)"
 
     local latest_version
     latest_version="$(echo "$api_response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
 
     if [[ -z "$latest_version" ]]; then
         # Fallback: try reading VERSION from raw URL
-        latest_version="$(safe_download "${EASYWORK_RAW_URL}/VERSION" 2>/dev/null | head -1 | tr -d '[:space:]')" || true
+        latest_version="$(safe_download "${EASYWORK_RAW_URL}/VERSION" 2> /dev/null | head -1 | tr -d '[:space:]')" || true
     fi
 
     if [[ -z "$latest_version" ]]; then
@@ -158,7 +164,8 @@ cmd_update() {
         return $EXIT_NETWORK
     fi
 
-    local current_version; current_version="$(manifest_get_version)"
+    local current_version
+    current_version="$(manifest_get_version)"
     current_version="${current_version:-0.0.0}"
 
     if ! _semver_is_newer "$latest_version" "$current_version"; then
@@ -181,7 +188,7 @@ cmd_update() {
 
     # Self-update: download versioned release asset
     local easywork_path
-    easywork_path="$(command -v easywork 2>/dev/null || echo '')"
+    easywork_path="$(command -v easywork 2> /dev/null || echo '')"
     if [[ -n "$easywork_path" ]] && [[ -w "$easywork_path" ]]; then
         backup_file "$easywork_path"
         log_info "下载 ${latest_version}..."
@@ -217,7 +224,7 @@ cmd_install() {
 
     # Detect old installation (from previous scripts/ era)
     if [[ -f "$HOME/.sh_config_custom" ]]; then
-        if ! grep -qF "# >>> EasyWork managed section" "$HOME/.sh_config_custom" 2>/dev/null; then
+        if ! grep -qF "# >>> EasyWork managed section" "$HOME/.sh_config_custom" 2> /dev/null; then
             log_warn "检测到旧版 EasyWork 配置（无版本管理）"
             if [[ "${DRY_RUN:-false}" == "true" ]]; then
                 log_info "[DRY-RUN] 将备份旧配置并迁移"
@@ -239,7 +246,8 @@ cmd_install() {
     # Determine install mode
     local install_mode="fresh"
     if manifest_exists; then
-        local installed_ver; installed_ver="$(manifest_get_version)"
+        local installed_ver
+        installed_ver="$(manifest_get_version)"
         if [[ "$installed_ver" == "$EASYWORK_VERSION" ]]; then
             install_mode="same_version"
         elif _semver_is_newer "$EASYWORK_VERSION" "$installed_ver"; then
@@ -283,7 +291,8 @@ cmd_install() {
     while IFS= read -r name; do
         [[ -n "$name" ]] && module_order+=("$name")
     done <<< "$module_list"
-    local sorted; sorted="$(for n in "${module_order[@]}"; do echo "${MODULE_PRIORITIES[$n]}|$n"; done | sort -t'|' -k1 -n | cut -d'|' -f2)"
+    local sorted
+    sorted="$(for n in "${module_order[@]}"; do echo "${MODULE_PRIORITIES[$n]}|$n"; done | sort -t'|' -k1 -n | cut -d'|' -f2)"
 
     for name in $sorted; do
         echo ""
@@ -303,7 +312,8 @@ cmd_install() {
 
     # Update manifest version
     if manifest_exists; then
-        local manifest_tmp; manifest_tmp="$(mktemp)"
+        local manifest_tmp
+        manifest_tmp="$(mktemp)"
         sed "s/^easywork_version=.*/easywork_version=${EASYWORK_VERSION}/" "$MANIFEST_FILE" > "$manifest_tmp"
         mv "$manifest_tmp" "$MANIFEST_FILE"
     fi
@@ -319,11 +329,11 @@ cmd_install() {
         local install_path
         if [[ -w "/usr/local/bin" ]]; then
             install_path="/usr/local/bin/easywork"
-        elif [[ -d "$HOME/.local/bin" ]] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
+        elif [[ -d "$HOME/.local/bin" ]] || mkdir -p "$HOME/.local/bin" 2> /dev/null; then
             install_path="$HOME/.local/bin/easywork"
         fi
         if [[ -n "${install_path:-}" ]]; then
-            if safe_download "${EASYWORK_RAW_URL}/bin/easywork" "$install_path" 2>/dev/null; then
+            if safe_download "${EASYWORK_RAW_URL}/bin/easywork" "$install_path" 2> /dev/null; then
                 chmod +x "$install_path"
                 if ! echo "$PATH" | grep -q "$(dirname "$install_path")"; then
                     log_warn "$(dirname "$install_path") 不在 \$PATH 中"
@@ -363,7 +373,8 @@ cmd_uninstall() {
         targets=("$component")
     else
         # All installed components
-        local installed; installed="$(manifest_list_installed)"
+        local installed
+        installed="$(manifest_list_installed)"
         if [[ -z "${installed// /}" ]]; then
             log_info "没有已安装的组件"
             # Still ask about config file
@@ -412,7 +423,8 @@ cmd_uninstall() {
 }
 
 _finalize_uninstall() {
-    local remaining; remaining="$(manifest_list_installed | tr '\n' ' ')"
+    local remaining
+    remaining="$(manifest_list_installed | tr '\n' ' ')"
     if [[ -n "${remaining// /}" ]]; then
         log_info "以下组件仍安装: ${remaining}"
         log_info "配置文件和 manifest 已保留"
@@ -439,7 +451,7 @@ _finalize_uninstall() {
 
 # ─── CLI: Help ────────────────────────────────────────────────
 cmd_help() {
-    cat <<EOF
+    cat << EOF
 EasyWork — 开发环境一键配置 ${EASYWORK_VERSION}
 
 用法:
@@ -474,7 +486,7 @@ _parse_global_flags() {
     _PARSED_ARGS=()
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --yes|-y)
+            --yes | -y)
                 YES_MODE=true
                 shift
                 ;;
@@ -482,7 +494,7 @@ _parse_global_flags() {
                 DRY_RUN=true
                 shift
                 ;;
-            --verbose|-v)
+            --verbose | -v)
                 VERBOSE=true
                 shift
                 ;;
@@ -534,11 +546,11 @@ main() {
             cmd_install
             ;;
         uninstall)
-            shift 2>/dev/null || true
+            shift 2> /dev/null || true
             cmd_uninstall "$@"
             ;;
         config)
-            shift 2>/dev/null || true
+            shift 2> /dev/null || true
             cmd_config "$@"
             ;;
         version)
@@ -547,7 +559,7 @@ main() {
         update)
             cmd_update
             ;;
-        help|--help|-h)
+        help | --help | -h)
             cmd_help
             ;;
         *)
@@ -557,7 +569,7 @@ main() {
                 if [[ -f "${LIB_DIR}/${cmd}.sh" ]]; then
                     source "${LIB_DIR}/${cmd}.sh"
                 fi
-                if declare -f module_install >/dev/null 2>&1; then
+                if declare -f module_install > /dev/null 2>&1; then
                     acquire_lock || exit $?
                     if module_install; then
                         manifest_set_section "$cmd" "installed=true"
