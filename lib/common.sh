@@ -162,13 +162,14 @@ replace_managed_section() {
         return 0
     fi
 
-    if grep -qF "$begin_marker" "$file" 2> /dev/null; then
-        # Managed section exists — replace it
+    if grep -qF "# >>> EasyWork managed section begin" "$file" 2>/dev/null; then
+        # Managed section exists — replace it (match markers by prefix for cross-version compat)
         local tmpfile
         tmpfile="${file}.tmp.$$"
         local in_section=false
+        local marker_prefix="# >>> EasyWork managed section begin"
         while IFS= read -r line; do
-            if [[ "$line" == "$begin_marker" ]]; then
+            if [[ "$line" == "$marker_prefix"* ]]; then
                 in_section=true
                 echo "$begin_marker" >> "$tmpfile"
                 echo "$content" >> "$tmpfile"
@@ -229,7 +230,7 @@ manifest_section_exists() {
 
 manifest_section_installed() {
     local section="$1"
-    manifest_section_exists "$section" && manifest_read "${section}_installed" "false" | grep -q "true"
+    manifest_list_installed | grep -qFx "$section"
 }
 
 manifest_list_installed() {
