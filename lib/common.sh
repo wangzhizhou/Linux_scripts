@@ -257,12 +257,10 @@ manifest_write() {
 
 manifest_set_section() {
     local section="$1"
-    shift 2>/dev/null || true
-    local pairs=("${@}")
-
-    # Read existing manifest (minus the target section)
     local new_manifest=""
     local skip_section=false
+
+    # Read existing manifest (minus the target section)
     if manifest_exists; then
         while IFS= read -r line; do
             if [[ "$line" == "[${section}]" ]]; then
@@ -282,11 +280,15 @@ manifest_set_section() {
         new_manifest="# EasyWork Manifest — auto-generated, do not edit"$'\n'
     fi
 
-    # Append the new section
+    # Append the new section with key=value pairs (if any)
     new_manifest+="[${section}]"$'\n'
-    for pair in "${pairs[@]}"; do
-        new_manifest+="${pair}"$'\n'
-    done
+    if [[ $# -gt 1 ]]; then
+        shift
+        local pair
+        for pair in "$@"; do
+            new_manifest+="${pair}"$'\n'
+        done
+    fi
 
     manifest_write "$new_manifest"
 }
