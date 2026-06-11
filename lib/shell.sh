@@ -10,7 +10,7 @@ MODULE_PRIORITY=10
 SH_CONFIG_FILE="$HOME/.sh_config_custom"
 
 module_check() {
-    [[ -f "$SH_CONFIG_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$SH_CONFIG_FILE" 2> /dev/null
+    [[ -f "$SH_CONFIG_FILE" ]] && grep -qF "EasyWork managed section" "$SH_CONFIG_FILE" 2> /dev/null
 }
 
 module_status() {

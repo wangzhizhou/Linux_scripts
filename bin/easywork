@@ -290,7 +290,8 @@ _remove_completions() {
 
 # ─── CLI: Install ─────────────────────────────────────────────
 cmd_install() {
-    log_info "EasyWork ${EASYWORK_VERSION} — 安装开始"
+    echo ""
+    printf "  %sEasyWork %s%s%s — 开发环境配置%s\n" "${C_CYAN}" "${C_RESET}" "${EASYWORK_VERSION}" "${C_CYAN}" "${C_RESET}"
     echo ""
 
     # Preflight check
@@ -347,7 +348,10 @@ cmd_install() {
             ;;
         same_version)
             log_info "已安装 ${EASYWORK_VERSION}，配置已是最新"
-            if [[ "${YES_MODE:-false}" != "true" ]]; then
+            if $IS_PIPED; then
+                # Piped reinstall: skip config refresh, continue to binary overwrite
+                :
+            elif [[ "${YES_MODE:-false}" != "true" ]]; then
                 local answer
                 read -r -p "  重新应用配置？[y/N] " answer
                 if [[ ! "$answer" =~ ^[Yy] ]]; then
@@ -369,7 +373,7 @@ cmd_install() {
 
 	for name in $sorted; do
         echo ""
-        log_info "[${name}] 开始..."
+        log_info "配置 ${name}..."
         # Re-source module file so the correct module_install is in scope
         if [[ -f "${LIB_DIR}/${name}.sh" ]]; then
             source "${LIB_DIR}/${name}.sh"
@@ -377,7 +381,7 @@ cmd_install() {
         if module_install; then
             manifest_set_section "$name" \
                 "installed=true"
-            log_success "[${name}] 完成"
+            log_success "${name} 完成"
         else
             log_error "[${name}] 失败"
         fi
@@ -400,8 +404,8 @@ cmd_install() {
         log_info "运行 easywork 查看可用命令"
     fi
 
-    # Self-install: copy to PATH if this is first install via pipe
-    if $IS_PIPED && [[ "$install_mode" == "fresh" ]]; then
+    # Self-install: always overwrite binary when piped
+    if $IS_PIPED; then
         echo ""
         log_info "安装 easywork 到系统路径..."
         local install_path
@@ -664,7 +668,7 @@ main() {
                         acquire_lock || exit $?
                         if module_install; then
                             manifest_set_section "$cmd" "installed=true"
-                            log_success "[${cmd}] 完成"
+                                                    log_success "${cmd} 完成"
                         else
                             log_error "[${cmd}] 失败"
                         fi

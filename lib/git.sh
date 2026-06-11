@@ -10,7 +10,7 @@ MODULE_PRIORITY=20
 GIT_CONFIG_FILE="$HOME/.gitconfig"
 
 module_check() {
-    [[ -f "$GIT_CONFIG_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$GIT_CONFIG_FILE" 2> /dev/null
+    [[ -f "$GIT_CONFIG_FILE" ]] && grep -qF "EasyWork managed section" "$GIT_CONFIG_FILE" 2> /dev/null
 }
 
 module_status() {
@@ -56,6 +56,38 @@ _show_current_git_config() {
     echo "  Git 邮箱:   $email"
 }
 
+# ─── Select Scope ──────────────────────────────────────────────
+_select_scope() {
+    echo ""
+    echo "  选择配置级别:"
+    echo "    1) global — 用户级（~/.gitconfig），所有仓库生效"
+    echo "    2) local  — 仓库级（当前仓库 .git/config）"
+
+    local choice
+    if [[ "${YES_MODE:-false}" != "true" ]]; then
+        read -r -p "  请选择 [1-2]: " choice
+    else
+        choice="1"
+        log_info "非交互模式，使用默认: global"
+    fi
+
+    case "$choice" in
+        1) GIT_SCOPE="global" ;;
+        2)
+            if ! git rev-parse --git-dir > /dev/null 2>&1; then
+                log_error "当前目录不在 Git 仓库中，无法使用 local 级别"
+                return 1
+            fi
+            GIT_SCOPE="local"
+            GIT_CONFIG_FILE="$(git rev-parse --show-toplevel)/.git/config"
+            ;;
+        *) log_error "无效选择"; return 1 ;;
+    esac
+
+    log_info "配置级别: ${GIT_SCOPE}"
+    return 0
+}
+
 # ─── Select Identity ───────────────────────────────────────────
 _select_identity() {
     # Load config for available identities
@@ -98,6 +130,58 @@ _select_identity() {
             return 1
             ;;
     esac
+
+    # Detect placeholder / empty values — guide user to input real ones
+    local name_is_placeholder=false
+    local email_is_placeholder=false
+
+    if [[ "${GIT_USER_NAME:-}" == "Your Name" ]] || [[ -z "${GIT_USER_NAME:-}" ]]; then
+        name_is_placeholder=true
+    fi
+    if [[ "${GIT_USER_EMAIL:-}" =~ ^your@ ]] || [[ -z "${GIT_USER_EMAIL:-}" ]]; then
+        email_is_placeholder=true
+    fi
+
+    if $name_is_placeholder || $email_is_placeholder; then
+        if [[ "${DRY_RUN:-false}" == "true" ]]; then
+            # Dry-run: skip interactive prompt for placeholder values
+            :
+        elif [[ "${YES_MODE:-false}" == "true" ]]; then
+            log_error "配置文件包含模板值，请先编辑: easywork config edit"
+            log_error "需要填写 GIT_PERSONAL_NAME 和 GIT_PERSONAL_EMAIL 等字段"
+            return 1
+        else
+            log_warn "尚未配置 Git 身份信息，请设置:"
+            echo ""
+
+            if $name_is_placeholder; then
+                local input_name=""
+                while true; do
+                    read -r -p "  Git 用户名: " input_name
+                    if _validate_name "$input_name"; then
+                        GIT_USER_NAME="$input_name"
+                        break
+                    fi
+                    log_warn "用户名不能为空或包含特殊字符，请重新输入"
+                done
+            fi
+
+            if $email_is_placeholder; then
+                local input_email=""
+                while true; do
+                    read -r -p "  Git 邮箱: " input_email
+                    if _validate_email "$input_email"; then
+                        GIT_USER_EMAIL="$input_email"
+                        break
+                    fi
+                    log_warn "邮箱格式无效，请重新输入"
+                done
+            fi
+
+            echo ""
+            log_success "已记录 Git 身份: ${GIT_USER_NAME} <${GIT_USER_EMAIL}>"
+        fi
+    fi
 
     # Validate
     if ! _validate_name "${GIT_USER_NAME:-}"; then
@@ -280,54 +364,88 @@ module_install() {
     fi
     config_load
 
+    # Select scope (global vs local repo)
+    if ! _select_scope; then
+        return $EXIT_ERROR
+    fi
+
     # Select identity
     if ! _select_identity; then
         return $EXIT_ERROR
     fi
 
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
-        log_info "[DRY-RUN] 将配置 Git 身份: ${GIT_USER_NAME} <${GIT_USER_EMAIL}>"
-        log_info "[DRY-RUN] 将生成/更新: $GIT_CONFIG_FILE"
+        log_info "[DRY-RUN] 将配置 Git 身份 (${GIT_SCOPE}): ${GIT_USER_NAME} <${GIT_USER_EMAIL}>"
         return 0
     fi
 
-    # Backup existing gitconfig (if not already backed up by easywork)
-    local bak
-    if [[ -f "$GIT_CONFIG_FILE" ]] && ! grep -qF "# >>> EasyWork managed section" "$GIT_CONFIG_FILE" 2> /dev/null; then
-        bak="$(backup_file "$GIT_CONFIG_FILE")"
-        log_info "已备份现有 ~/.gitconfig → ${bak}"
+    if [[ "$GIT_SCOPE" == "local" ]]; then
+        # ——— Local repo config: use git config --local ———
+        git config --local user.name "$GIT_USER_NAME"
+        git config --local user.email "$GIT_USER_EMAIL"
+        log_success "已设置仓库级 Git 身份: ${GIT_USER_NAME} <${GIT_USER_EMAIL}>"
+
+        manifest_set_section "git" \
+            "installed=true" \
+            "scope=local" \
+            "repo=$(git rev-parse --show-toplevel)"
+    else
+        # ——— Global config: managed section with aliases ———
+        # Backup existing gitconfig (if not already managed by easywork)
+        local bak
+        if [[ -f "$GIT_CONFIG_FILE" ]] && ! grep -qF "EasyWork managed section" "$GIT_CONFIG_FILE" 2> /dev/null; then
+            bak="$(backup_file "$GIT_CONFIG_FILE")"
+            log_info "已备份现有 ~/.gitconfig → ${bak}"
+        fi
+
+        # Generate config with placeholders replaced
+        local config_content
+        config_content="$(_generate_git_config)"
+        config_content="${config_content//__GIT_USER_NAME__/${GIT_USER_NAME}}"
+        config_content="${config_content//__GIT_USER_EMAIL__/${GIT_USER_EMAIL}}"
+
+        replace_managed_section "$GIT_CONFIG_FILE" "$EASYWORK_VERSION" "$config_content"
+        log_success "已生成: $GIT_CONFIG_FILE"
+
+        manifest_set_section "git" \
+            "installed=true" \
+            "scope=global" \
+            "config_file=${GIT_CONFIG_FILE}" \
+            "${bak:+config_backup=${bak}}"
     fi
 
-    # Generate config with placeholders replaced
-    local config_content
-    config_content="$(_generate_git_config)"
-    config_content="${config_content//__GIT_USER_NAME__/${GIT_USER_NAME}}"
-    config_content="${config_content//__GIT_USER_EMAIL__/${GIT_USER_EMAIL}}"
-
-    replace_managed_section "$GIT_CONFIG_FILE" "$EASYWORK_VERSION" "$config_content"
-    log_success "已生成: $GIT_CONFIG_FILE"
-
-    # Identity is set via managed section in ~/.gitconfig — no separate git config call needed
-
-    # Record to manifest
-    manifest_set_section "git" \
-        "installed=true" \
-        "config_file=${GIT_CONFIG_FILE}" \
-        "${bak:+config_backup=${bak}}"
-
     log_success "Git 配置完成 ✓"
-    _show_current_git_config "global"
+    _show_current_git_config "$GIT_SCOPE"
 
     return 0
 }
 
 # ─── Module: Uninstall ────────────────────────────────────────
 module_uninstall() {
+    local scope
+    scope="$(manifest_read 'scope')"
+    scope="${scope:-global}"
+
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
-        log_info "[DRY-RUN] 将恢复备份的 ~/.gitconfig（如有）"
+        log_info "[DRY-RUN] 将移除 Git 配置 (${scope})"
         return 0
     fi
 
+    if [[ "$scope" == "local" ]]; then
+        # ——— Local repo config: git config --local --unset ———
+        local repo
+        repo="$(manifest_read 'repo')"
+        if [[ -n "$repo" ]] && [[ -d "$repo/.git" ]]; then
+            git -C "$repo" config --local --unset user.name 2>/dev/null || true
+            git -C "$repo" config --local --unset user.email 2>/dev/null || true
+            log_success "已移除仓库级 Git 身份"
+        else
+            log_warn "仓库目录不存在，跳过"
+        fi
+        return 0
+    fi
+
+    # ——— Global config uninstall ———
     # Try to restore backup
     local config_backup
     config_backup="$(manifest_read 'config_backup')"
@@ -341,26 +459,24 @@ module_uninstall() {
             log_success "已恢复备份的 ~/.gitconfig"
         fi
     else
-        # No backup — just remove the managed section
-        if [[ -f "$GIT_CONFIG_FILE" ]] && grep -qF "# >>> EasyWork managed section" "$GIT_CONFIG_FILE" 2> /dev/null; then
+        # No backup — just remove the managed section (comment-agnostic)
+        if [[ -f "$GIT_CONFIG_FILE" ]] && grep -qF "EasyWork managed section" "$GIT_CONFIG_FILE" 2> /dev/null; then
             local answer="y"
             if [[ "${YES_MODE:-false}" != "true" ]]; then
                 read -r -p "  移除 EasyWork 写入的 Git 配置？[Y/n] " answer
             fi
             if [[ ! "$answer" =~ ^[Nn] ]]; then
-                # Remove managed section, keep the rest
+                # Remove managed section, keep the rest (comment-agnostic matching)
                 local tmpfile="${GIT_CONFIG_FILE}.tmp.$$"
-                local begin_marker="# >>> EasyWork managed section"
-                local end_marker="# <<< EasyWork managed section end <<<"
                 local in_section=false
                 local had_content=false
                 while IFS= read -r line; do
-                    if [[ "$line" == "$begin_marker"* ]]; then
+                    if [[ "$line" =~ "EasyWork managed section begin" ]]; then
                         in_section=true
                         had_content=true
                         continue
                     fi
-                    if $in_section && [[ "$line" == "$end_marker" ]]; then
+                    if $in_section && [[ "$line" =~ "EasyWork managed section end" ]]; then
                         in_section=false
                         continue
                     fi
