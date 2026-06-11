@@ -144,8 +144,9 @@ _select_identity() {
 
     if $name_is_placeholder || $email_is_placeholder; then
         if [[ "${DRY_RUN:-false}" == "true" ]]; then
-            # Dry-run: skip interactive prompt for placeholder values
-            :
+            # Dry-run: use dummy values for preview
+            $name_is_placeholder && GIT_USER_NAME="(your-name)"
+            $email_is_placeholder && GIT_USER_EMAIL="(your@email.com)"
         elif [[ "${YES_MODE:-false}" == "true" ]]; then
             log_error "配置文件包含模板值，请先编辑: easywork config edit"
             log_error "需要填写 GIT_PERSONAL_NAME 和 GIT_PERSONAL_EMAIL 等字段"
@@ -180,6 +181,19 @@ _select_identity() {
 
             echo ""
             log_success "已记录 Git 身份: ${GIT_USER_NAME} <${GIT_USER_EMAIL}>"
+
+            # Save to config file for future use
+            local save_config="y"
+            read -r -p "  保存到配置文件以便下次使用？[Y/n] " save_config
+            if [[ ! "$save_config" =~ ^[Nn] ]]; then
+                if $name_is_placeholder; then
+                    _save_config_var "git" "GIT_PERSONAL_NAME" "$GIT_USER_NAME"
+                fi
+                if $email_is_placeholder; then
+                    _save_config_var "git" "GIT_PERSONAL_EMAIL" "$GIT_USER_EMAIL"
+                fi
+                log_info "已保存到 $(config_path)"
+            fi
         fi
     fi
 

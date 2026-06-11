@@ -1,14 +1,8 @@
 # EasyWork 配置文件
-# 复制为 ~/.easywork.conf 并填入你的个人信息
+# 复制为 ~/.easywork.conf
 #
-# 首次运行 easywork install 时会自动创建此文件
+# 各模块配置由对应模块自行管理，运行对应命令即可引导配置：
+#   easywork git   — 配置 Git 身份信息
+#
 # 编辑: easywork config edit
 # 查看: easywork config
-
-# Git 身份 — 安装 easywork git 时会提示选择使用哪一组
-
-GIT_PERSONAL_NAME="Your Name"
-GIT_PERSONAL_EMAIL="your@email.com"
-
-GIT_WORK_NAME="Your Name"
-GIT_WORK_EMAIL="your@work.com"

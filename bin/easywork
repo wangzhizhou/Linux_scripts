@@ -84,9 +84,15 @@ _discover_modules() {
 
     # Download remote modules if running from cache dir (piped/standalone)
     if [[ -n "${_CACHE_DIR:-}" ]] && [[ "$lib_dir" == "$_CACHE_DIR" ]]; then
-        for mod in shell git vim; do
-            [[ -f "${_CACHE_DIR}/${mod}.sh" ]] || safe_download "${EASYWORK_RAW_URL}/lib/${mod}.sh" "${_CACHE_DIR}/${mod}.sh" 2>/dev/null || true
-        done
+        # Download module index, then each listed module
+        local modules_list
+        modules_list="$(safe_download "${EASYWORK_RAW_URL}/MODULES" 2>/dev/null || true)"
+        if [[ -n "$modules_list" ]]; then
+            for mod in $modules_list; do
+                [[ -n "$mod" ]] || continue
+                [[ -f "${_CACHE_DIR}/${mod}.sh" ]] || safe_download "${EASYWORK_RAW_URL}/lib/${mod}.sh" "${_CACHE_DIR}/${mod}.sh" 2>/dev/null || true
+            done
+        fi
     fi
 
     for f in "$lib_dir"/*.sh; do
@@ -211,6 +217,26 @@ cmd_update() {
 }
 
 # ─── Shell Completion Setup ────────────────────────────────────
+_detect_rc_file() {
+    # Delegate to shell module if available, otherwise inline detection
+    if declare -f _detect_shell_rc > /dev/null 2>&1; then
+        _detect_shell_rc
+        return
+    fi
+    local os_type sh_type
+    os_type="$(detect_os)"
+    sh_type="$(detect_shell)"
+    case "$os_type" in
+        macos)
+            case "$sh_type" in
+                zsh) echo "$HOME/.zshrc" ;;
+                bash) echo "$HOME/.bash_profile" ;;
+                *) echo "$HOME/.bashrc" ;;
+            esac ;;
+        *) echo "$HOME/.bashrc" ;;
+    esac
+}
+
 _setup_completions() {
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
         log_info "[DRY-RUN] 将配置 shell 补全"
@@ -220,40 +246,33 @@ _setup_completions() {
     local comp_dir="$HOME/.easywork/completions"
     mkdir -p "$comp_dir"
 
+    # Build dynamic command list: built-in + registered modules
+    local subcommands="install uninstall config version update"
+    local mod_list
+    mod_list="$(list_modules_sorted 2>/dev/null | tr '\n' ' ' || true)"
+    [[ -n "${mod_list// }" ]] && subcommands="$subcommands $mod_list"
+
     # Bash completion
-    cat > "$comp_dir/easywork.bash" << 'BASH_COMP'
+    cat > "$comp_dir/easywork.bash" << BASH_COMP
 _easywork() {
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    COMPREPLY=($(compgen -W "install uninstall config version update shell git vim" -- "$cur"))
+    local cur="\${COMP_WORDS[COMP_CWORD]}"
+    COMPREPLY=(\$(compgen -W "${subcommands}" -- "\$cur"))
 }
 complete -F _easywork easywork
 BASH_COMP
 
     # Zsh completion
-    cat > "$comp_dir/_easywork" << 'ZSH_COMP'
+    cat > "$comp_dir/_easywork" << ZSH_COMP
 #compdef easywork
-_arguments '1: :(install uninstall config version update shell git vim)'
+_arguments '1: :(${subcommands})'
 ZSH_COMP
 
-    # Detect rc file (use detect_os/detect_shell from common.sh)
-    local os_type sh_type rc_file
-    os_type="$(detect_os)"
-    sh_type="$(detect_shell)"
-    case "$os_type" in
-        macos)
-            case "$sh_type" in
-                zsh) rc_file="$HOME/.zshrc" ;;
-                bash) rc_file="$HOME/.bash_profile" ;;
-                *) rc_file="$HOME/.bashrc" ;;
-            esac ;;
-        *) rc_file="$HOME/.bashrc" ;;
-    esac
-
-    # Ensure rc file exists
+    local rc_file
+    rc_file="$(_detect_rc_file)"
     [[ -f "$rc_file" ]] || touch "$rc_file"
 
-    # Inject source line
-    local source_line
+    local sh_type source_line
+    sh_type="$(detect_shell)"
     if [[ "$sh_type" == "zsh" ]]; then
         source_line="fpath=($comp_dir \$fpath)"
     else
@@ -274,23 +293,11 @@ _remove_completions() {
     fi
 
     local comp_dir="$HOME/.easywork/completions"
-
-    # Remove source/fpath lines from rc file
-    local os_type sh_type rc_file
-    os_type="$(detect_os)"
+    local rc_file source_line sh_type
+    rc_file="$(_detect_rc_file)"
     sh_type="$(detect_shell)"
-    case "$os_type" in
-        macos)
-            case "$sh_type" in
-                zsh) rc_file="$HOME/.zshrc" ;;
-                bash) rc_file="$HOME/.bash_profile" ;;
-                *) rc_file="$HOME/.bashrc" ;;
-            esac ;;
-        *) rc_file="$HOME/.bashrc" ;;
-    esac
 
     if [[ -f "$rc_file" ]]; then
-        local source_line
         if [[ "$sh_type" == "zsh" ]]; then
             source_line="fpath=($comp_dir \$fpath)"
         else
@@ -301,9 +308,7 @@ _remove_completions() {
         mv "$tmpfile" "$rc_file"
     fi
 
-    # Remove completion files
     rm -f "$comp_dir/easywork.bash" "$comp_dir/_easywork"
-    # Remove dir if empty
     rmdir "$comp_dir" 2>/dev/null || true
 }
 
@@ -444,7 +449,7 @@ cmd_install() {
                     log_info "请添加以下行到你的 shell 配置: export PATH=\"$(dirname "$install_path"):\$PATH\""
                 fi
                 log_success "已安装 easywork 到 ${install_path}"
-                log_info "运行 'easywork install' 完成组件配置 (shell, git, vim)"
+                log_info "运行 'easywork install' 完成组件配置"
             fi
         fi
     fi
@@ -463,10 +468,8 @@ cmd_uninstall() {
 
     if ! manifest_exists; then
         log_error "未检测到安装记录（${MANIFEST_FILE} 不存在）"
-        log_info "如果之前使用过 EasyWork，请手动清理以下文件:"
-        log_info "  ~/.sh_config_custom (Shell 配置文件)"
-        log_info "  ~/.gitconfig (如果由 EasyWork 创建)"
-        log_info "  ~/.vimrc (如果由 EasyWork 创建)"
+        log_info "如果之前使用过 EasyWork，请手动清理模块配置文件:"
+        log_info "  ~/.sh_config_custom, ~/.gitconfig, ~/.vimrc 等"
         return $EXIT_ERROR
     fi
 
@@ -647,10 +650,14 @@ main() {
 
     # Discover modules (only when needed; skip for piped install)
     if ! $IS_PIPED || [[ "$cmd" != "install" ]]; then
-        if [[ "$cmd" =~ ^(install|uninstall|help|shell|git|vim)$ ]] || ! [[ "$cmd" =~ ^(config|version|update)$ ]]; then
-            if [[ -n "$LIB_DIR" ]]; then
-                _discover_modules "$LIB_DIR"
-            fi
+        local _need_modules=false
+        case "$cmd" in
+            install|uninstall|help) _need_modules=true ;;
+            config|version|update) _need_modules=false ;;
+            *) _need_modules=true ;;  # Unknown: might be a module name
+        esac
+        if $_need_modules && [[ -n "$LIB_DIR" ]]; then
+            _discover_modules "$LIB_DIR"
         fi
     fi
 

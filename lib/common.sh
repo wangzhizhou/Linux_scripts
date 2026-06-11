@@ -349,17 +349,44 @@ config_init() {
             log_info "已创建配置文件: $CONFIG_FILE"
             log_info "请编辑此文件填入你的个人信息: easywork config edit"
         else
-            log_warn "配置模板 $CONFIG_EXAMPLE 不存在，创建空配置"
             cat > "$CONFIG_FILE" << 'EOC'
 # EasyWork 配置文件
-GIT_PERSONAL_NAME="Your Name"
-GIT_PERSONAL_EMAIL="your@email.com"
-GIT_WORK_NAME="Your Name"
-GIT_WORK_EMAIL="your@work.com"
+# 各模块配置由对应模块自行管理
+# 编辑: easywork config edit
 EOC
         fi
     fi
     config_load
+}
+
+_save_config_var() {
+    local section="$1" key="$2" value="$3"
+    local section_marker="## ${section}"
+
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        config_init
+    fi
+
+    # Ensure section marker exists
+    if ! grep -qF "$section_marker" "$CONFIG_FILE" 2>/dev/null; then
+        echo "" >> "$CONFIG_FILE"
+        echo "$section_marker" >> "$CONFIG_FILE"
+    fi
+
+    # Upsert key=value
+    if grep -q "^${key}=" "$CONFIG_FILE" 2>/dev/null; then
+        local tmpfile="${CONFIG_FILE}.tmp.$$"
+        sed "s/^${key}=.*/${key}=\"${value}\"/" "$CONFIG_FILE" > "$tmpfile" 2>/dev/null
+        mv "$tmpfile" "$CONFIG_FILE"
+    else
+        # Insert after section marker
+        local tmpfile="${CONFIG_FILE}.tmp.$$"
+        while IFS= read -r line; do
+            echo "$line" >> "$tmpfile"
+            [[ "$line" == "$section_marker" ]] && echo "${key}=\"${value}\"" >> "$tmpfile"
+        done < "$CONFIG_FILE"
+        mv "$tmpfile" "$CONFIG_FILE"
+    fi
 }
 
 config_show() {
