@@ -1,4 +1,4 @@
-.PHONY: lint test fmt check install clean help
+.PHONY: lint test fmt fmt-check check install clean help dry-run
 
 # ── EasyWork Makefile ──────────────────────────────────────────
 
@@ -6,10 +6,12 @@ SHELLCHECK := $(shell command -v shellcheck 2>/dev/null)
 SHFMT     := $(shell command -v shfmt 2>/dev/null)
 BATS      := $(shell command -v bats 2>/dev/null)
 
+.DEFAULT_GOAL := help
+
 lint: ## Run ShellCheck static analysis
 	@echo "==> Running ShellCheck..."
 ifdef SHELLCHECK
-	$(SHELLCHECK) bin/easywork lib/*.sh
+	$(SHELLCHECK) bin/easywork lib/*.sh tests/helpers/mocks.bash
 	@echo "✅ ShellCheck passed"
 else
 	$(error "shellcheck not found. Install: brew install shellcheck or apt install shellcheck")

@@ -103,7 +103,11 @@ check_network() {
 safe_download() {
     local url="$1"
     local output="${2:-}"
-    shift 2 2> /dev/null || true
+    if (( $# >= 2 )); then
+        shift 2
+    else
+        shift
+    fi
     local opts=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --retry-connrefused)
     if [[ -n "$output" ]]; then
         curl "${opts[@]}" "$@" -o "$output" "$url"
@@ -119,8 +123,12 @@ backup_file() {
         local ts
         ts="$(date +%Y%m%dT%H%M%S)"
         local bak="${file}.bak.${ts}"
-        cp -p "$file" "$bak"
-        echo "$bak"
+        if cp -p "$file" "$bak"; then
+            echo "$bak"
+        else
+            log_error "无法创建备份: $bak"
+            return 1
+        fi
     fi
 }
 
@@ -529,7 +537,10 @@ config_edit() {
         log_error "未找到编辑器，请设置 \$EDITOR 环境变量"
         return 1
     fi
-    "$editor" "$(config_path)"
+    if ! "$editor" "$(config_path)"; then
+        # Editor exited non-zero (e.g. :cq in vim) — ignore, not a fatal error
+        :
+    fi
 }
 
 # ─── Module Registry ──────────────────────────────────────────
@@ -707,7 +718,10 @@ release_lock() {
     elif [[ -f "$LOCK_FILE" ]]; then
         rm -f "$LOCK_FILE" 2> /dev/null || true
     fi
-    LOCK_FD=""
+    # Preserve the numeric fd constant so re-acquire works correctly.
+    # acquire_lock uses eval "exec ${LOCK_FD}> ..." — clearing this to ""
+    # would redirect stdout on the next call instead of opening a file descriptor.
+    : "${LOCK_FD:=200}"
 }
 
 # ─── Signal Handling ──────────────────────────────────────────
@@ -717,7 +731,7 @@ cleanup_on_interrupt() {
     release_lock
     if [[ -n "$TEMP_FILES" ]]; then
         # shellcheck disable=SC2086
-        rm -f $TEMP_FILES
+        rm -f -- $TEMP_FILES
     fi
     # Safety net: clean common tmp patterns for this PID
     rm -f "${HOME}/.easywork"*.tmp."$$" 2> /dev/null || true

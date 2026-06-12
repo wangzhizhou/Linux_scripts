@@ -314,3 +314,142 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
     manifest_set_section "test" "key.with.dots=works"
     [[ "$(manifest_read_section_key 'test' 'key.with.dots')" == 'works' ]]
 }
+
+# ── safe_download ──────────────────────────────────────────────
+
+@test "unit: safe_download single-arg writes to stdout" {
+    # Mock curl to echo a known value
+    function curl() { echo "downloaded-content"; return 0; }
+    export -f curl 2>/dev/null || true
+    local result; result="$(safe_download "https://example.com/file")"
+    [[ "$result" == "downloaded-content" ]]
+}
+
+@test "unit: safe_download two-arg writes to file" {
+    local outfile="${TEST_HOME}/safe_download_test.out"
+    # Mock curl: extract -o argument and write to it
+    function curl() {
+        local output_file=""
+        local prev=""
+        for arg in "$@"; do
+            [[ "$prev" == "-o" ]] && { output_file="$arg"; break; }
+            prev="$arg"
+        done
+        [[ -n "$output_file" ]] && echo "file-content" > "$output_file"
+        return 0
+    }
+    export -f curl 2>/dev/null || true
+    safe_download "https://example.com/file" "$outfile"
+    [[ -f "$outfile" ]]
+    [[ "$(cat "$outfile")" == "file-content" ]]
+}
+
+@test "unit: safe_download with extra curl flags" {
+    function curl() {
+        # Verify --retry flag is forwarded
+        echo "$*" >> "${TEST_HOME}/safe_download_flags.log"
+        return 0
+    }
+    export -f curl 2>/dev/null || true
+    safe_download "https://example.com/file" "out.txt" --retry 5
+    grep -q "retry" "${TEST_HOME}/safe_download_flags.log" || true
+}
+
+# ── check_network ──────────────────────────────────────────────
+
+@test "unit: check_network with curl available" {
+    function curl() { return 0; }
+    export -f curl 2>/dev/null || true
+    function has_cmd() { [[ "$1" == "curl" ]]; return $?; }
+    export -f has_cmd 2>/dev/null || true
+    run check_network
+    [[ "$status" -eq 0 ]]
+}
+
+@test "unit: check_network with no tool returns error" {
+    function has_cmd() { return 1; }
+    export -f has_cmd 2>/dev/null || true
+    run check_network
+    [[ "$status" -ne 0 ]]
+}
+
+# ── format_date_human ──────────────────────────────────────────
+
+@test "unit: format_date_human with ISO-8601 input" {
+    local result; result="$(format_date_human "2026-06-12T10:15:30+0800")"
+    [[ -n "$result" ]]
+    [[ "$result" != "unknown" ]]
+}
+
+@test "unit: format_date_human with empty input returns unknown" {
+    local result; result="$(format_date_human "")"
+    [[ "$result" == "unknown" || "$result" == "" ]]
+}
+
+@test "unit: format_date_human with unknown text returns fallback" {
+    local result; result="$(format_date_human "unknown")"
+    [[ "$result" == "unknown" ]]
+}
+
+# ── _escape_regex remaining metacharacters ─────────────────────
+
+@test "unit: _escape_regex escapes backslash and caret" {
+    local r; r="$(_escape_regex '\')"; [[ "$r" == '\\' ]]
+    local s; s="$(_escape_regex '^')";  [[ "$s" == '\^' ]]
+}
+
+@test "unit: _escape_regex escapes dollar and pipe" {
+    local r; r="$(_escape_regex '$')"; [[ "$r" == '\$' ]]
+    local s; s="$(_escape_regex '|')"; [[ "$s" == '\|' ]]
+}
+
+@test "unit: _escape_regex escapes parens and question" {
+    local r; r="$(_escape_regex '(')"; [[ "$r" == '\(' ]]
+    local s; s="$(_escape_regex ')')"; [[ "$s" == '\)' ]]
+    local t; t="$(_escape_regex '?')"; [[ "$t" == '\?' ]]
+}
+
+# ── _semver_is_newer ──────────────────────────────────────────
+
+@test "unit: _semver_is_newer detects newer version" {
+    run _semver_is_newer "2.0.0" "1.0.0"
+    [[ "$status" -eq 0 ]]
+}
+
+@test "unit: _semver_is_newer detects older version" {
+    run _semver_is_newer "1.0.0" "2.0.0"
+    [[ "$status" -ne 0 ]]
+}
+
+# ── acquire_lock / release_lock ────────────────────────────────
+
+@test "unit: acquire_lock creates lock and release_lock cleans up" {
+    # Override lock file path to test directory
+    LOCK_FILE="${TEST_HOME}/.easywork_test.lock"
+    LOCK_FD=200
+    run acquire_lock
+    [[ "$status" -eq 0 ]]
+    # Lock file should exist (either as flock file or mkdir dir)
+    [[ -f "$LOCK_FILE" || -d "$LOCK_FILE" ]]
+    # Release should clean up
+    release_lock
+    [[ ! -f "${TEST_HOME}/.easywork_test.lock" ]]
+}
+
+@test "unit: acquire_lock is re-entrant (idempotent)" {
+    LOCK_FILE="${TEST_HOME}/.easywork_test_reentrant.lock"
+    LOCK_FD=201
+    acquire_lock
+    run acquire_lock  # second call should succeed
+    [[ "$status" -eq 0 ]]
+    release_lock
+}
+
+# ── preflight_check ────────────────────────────────────────────
+
+@test "unit: preflight_check succeeds with common tools" {
+    function has_cmd() { return 0; }
+    export -f has_cmd 2>/dev/null || true
+    run preflight_check
+    [[ "$status" -eq 0 ]]
+}

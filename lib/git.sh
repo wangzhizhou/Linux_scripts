@@ -528,10 +528,15 @@ module_uninstall() {
                         continue
                     fi
                     if ! $in_section; then
-                        echo "$line" >> "$tmpfile"
+                        printf '%s\n' "$line" >> "$tmpfile"
                     fi
                 done < "$GIT_CONFIG_FILE"
-                if $had_content; then
+                # Guard against missing end marker: if still in section at EOF,
+                # the file is malformed — keep original and warn
+                if $in_section; then
+                    log_warn "检测到不完整的 EasyWork 标记段，跳过修改"
+                    rm -f "$tmpfile"
+                elif $had_content; then
                     mv "$tmpfile" "$GIT_CONFIG_FILE"
                 else
                     rm -f "$tmpfile"

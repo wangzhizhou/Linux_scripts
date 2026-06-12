@@ -37,7 +37,10 @@ teardown() { teardown_mocks; }
 @test "module-shell: _generate_shell_config has expected content" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
     local content; content="$(_generate_shell_config)"
-    [[ "$content" =~ "sh_config_custom" ]] || [[ "$content" =~ "alias" ]]
+    # Check for key markers that are always present in generated config
+    [[ "$content" =~ "LC_ALL=en_US.UTF-8" ]]
+    [[ "$content" =~ "BLACK=\$'\\e[30m'" ]]
+    [[ "$content" =~ "git-branch-name()" ]]
 }
 
 @test "module-shell: dry-run install does not create files" {
@@ -181,4 +184,117 @@ EOF
     [[ "$(manifest_read 'key1')" == "val1" ]]
     [[ "$(manifest_read 'key2')" == "val2" ]]
     run manifest_section_installed "test"; [[ "$status" -eq 0 ]]
+}
+
+# ── Module Uninstall ───────────────────────────────────────────
+
+@test "module-shell: dry-run uninstall does not delete files" {
+    source "${EASYWORK_ROOT}/lib/shell.sh"
+    # Create a fake config file to verify it's not deleted in dry-run
+    echo "# EasyWork managed section begin v1.0.0" > "$SH_CONFIG_FILE"
+    echo "export TEST_VAR=1" >> "$SH_CONFIG_FILE"
+    echo "# EasyWork managed section end" >> "$SH_CONFIG_FILE"
+    DRY_RUN=true module_uninstall
+    [[ -f "$SH_CONFIG_FILE" ]]
+}
+
+@test "module-git: dry-run uninstall does not modify gitconfig" {
+    source "${EASYWORK_ROOT}/lib/git.sh"
+    echo "# EasyWork managed section begin v1.0.0" > "$GIT_CONFIG_FILE"
+    echo "[user]" >> "$GIT_CONFIG_FILE"
+    echo "# EasyWork managed section end" >> "$GIT_CONFIG_FILE"
+    DRY_RUN=true module_uninstall
+    [[ -f "$GIT_CONFIG_FILE" ]]
+}
+
+@test "module-vim: dry-run uninstall does not delete vimrc" {
+    source "${EASYWORK_ROOT}/lib/vim.sh"
+    echo '" EasyWork managed section begin v1.0.0' > "$VIMRC_FILE"
+    echo '" EasyWork managed section end' >> "$VIMRC_FILE"
+    DRY_RUN=true module_uninstall
+    [[ -f "$VIMRC_FILE" ]]
+}
+
+@test "module-git: uninstall removes managed section" {
+    source "${EASYWORK_ROOT}/lib/git.sh"
+    # Create a file with user content + managed section
+    cat > "$GIT_CONFIG_FILE" << 'EOF'
+# User's own git config
+[user]
+    name = pre-existing-user
+# EasyWork managed section begin v1.0.0
+[user]
+    name = easywork-user
+[alias]
+    s = status
+# EasyWork managed section end
+# User content after
+[diff]
+    tool = mydiff
+EOF
+    YES_MODE=true module_uninstall
+    # File should exist but managed section removed
+    [[ -f "$GIT_CONFIG_FILE" ]]
+    # User content before and after section must be preserved
+    grep -q "pre-existing-user" "$GIT_CONFIG_FILE"
+    grep -q "mydiff" "$GIT_CONFIG_FILE"
+    # Managed content must be removed
+    ! grep -q "easywork-user" "$GIT_CONFIG_FILE"
+    ! grep -q "s = status" "$GIT_CONFIG_FILE"
+}
+
+# ── Shell Completions ──────────────────────────────────────────
+
+@test "completions: install generates bash and zsh completion files" {
+    local comp_dir="${TEST_HOME}/.easywork/completions"
+    local rc_file="${TEST_HOME}/.bashrc"
+    touch "$rc_file"
+
+    # Run install with --yes to trigger _setup_completions
+    run "${EASYWORK_ROOT}/bin/easywork" install --yes
+    [[ "$status" -eq 0 ]]
+
+    # Completion files must exist
+    [[ -f "$comp_dir/easywork.bash" ]]
+    [[ -f "$comp_dir/_easywork" ]]
+
+    # Bash completion must contain the completion function
+    grep -q "_easywork()" "$comp_dir/easywork.bash"
+    grep -q "complete -F _easywork easywork" "$comp_dir/easywork.bash"
+
+    # Zsh completion must contain #compdef
+    grep -q "#compdef easywork" "$comp_dir/_easywork"
+}
+
+@test "completions: generated bash completion is context-aware" {
+    # Run install to generate completions
+    run "${EASYWORK_ROOT}/bin/easywork" install --yes
+    [[ "$status" -eq 0 ]]
+
+    local comp_dir="${TEST_HOME}/.easywork/completions"
+    source "$comp_dir/easywork.bash"
+
+    # Test: easywork <TAB> should suggest install command
+    COMP_WORDS=("easywork" "")
+    COMP_CWORD=1
+    _easywork
+    local found_install=false
+    local w
+    for w in "${COMPREPLY[@]}"; do
+        [[ "$w" == "install" ]] && found_install=true
+    done
+    [[ "$found_install" == "true" ]]
+
+    # Test: easywork config <TAB> should suggest edit and show
+    COMP_WORDS=("easywork" "config" "")
+    COMP_CWORD=2
+    _easywork
+    local found_edit=false
+    local found_show=false
+    for w in "${COMPREPLY[@]}"; do
+        [[ "$w" == "edit" ]] && found_edit=true
+        [[ "$w" == "show" ]] && found_show=true
+    done
+    [[ "$found_edit" == "true" ]]
+    [[ "$found_show" == "true" ]]
 }

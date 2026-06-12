@@ -275,24 +275,70 @@ _setup_completions() {
     mkdir -p "$comp_dir"
 
     # Build dynamic command list: built-in + registered modules
-    local subcommands="install uninstall config version update"
     local mod_list
     mod_list="$(list_modules_sorted 2> /dev/null | tr '\n' ' ' || true)"
-    [[ -n "${mod_list// /}" ]] && subcommands="$subcommands $mod_list"
 
-    # Bash completion
+    # Bash completion — context-aware: flags, subcommands, module names
     cat > "$comp_dir/easywork.bash" << BASH_COMP
 _easywork() {
-    local cur="\${COMP_WORDS[COMP_CWORD]}"
-    COMPREPLY=(\$(compgen -W "${subcommands}" -- "\$cur"))
+    COMPREPLY=()
+    local cur
+    cur="\${COMP_WORDS[COMP_CWORD]}"
+
+    local global_opts="--yes -y --dry-run --verbose -v"
+    local uninstall_opts="--keep-config --remove-config"
+    local commands="install uninstall config version update help"
+    local modules="${mod_list}"
+
+    local cmd=""
+    local i
+    for ((i = 1; i < COMP_CWORD; i++)); do
+        [[ "\${COMP_WORDS[i]}" != -* ]] && { cmd="\${COMP_WORDS[i]}"; break; }
+    done
+
+    if [[ "\$cur" == -* ]]; then
+        local opts="\$global_opts"
+        [[ "\$cmd" == "uninstall" ]] && opts="\$opts \$uninstall_opts"
+        COMPREPLY=(\$(compgen -W "\$opts" -- "\$cur"))
+        return
+    fi
+
+    if [[ -z "\$cmd" ]]; then
+        COMPREPLY=(\$(compgen -W "\$commands \$modules" -- "\$cur"))
+        return
+    fi
+
+    case "\$cmd" in
+        install | uninstall) COMPREPLY=(\$(compgen -W "\$modules" -- "\$cur")) ;;
+        config)              COMPREPLY=(\$(compgen -W "edit show" -- "\$cur")) ;;
+    esac
 }
 complete -F _easywork easywork
 BASH_COMP
 
-    # Zsh completion
+    # Zsh completion — context-aware with flag descriptions and subcommand routing
     cat > "$comp_dir/_easywork" << ZSH_COMP
 #compdef easywork
-_arguments '1: :(${subcommands})'
+
+_arguments -C \\
+    '--yes[跳过交互确认]' \\
+    '-y[跳过交互确认]' \\
+    '--dry-run[预览变更不执行]' \\
+    '--verbose[详细输出]' \\
+    '-v[详细输出]' \\
+    '--keep-config[卸载时保留配置文件]' \\
+    '--remove-config[卸载时删除配置文件]' \\
+    "1:命令:(install uninstall config version update help ${mod_list})" \\
+    '*::参数:->args'
+
+case "\$state" in
+    args)
+        case "\${line[1]}" in
+            install | uninstall) compadd ${mod_list} ;;
+            config)              compadd edit show ;;
+        esac
+        ;;
+esac
 ZSH_COMP
 
     local rc_file

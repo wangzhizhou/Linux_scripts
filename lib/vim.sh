@@ -107,14 +107,11 @@ _ensure_vim_plug() {
     fi
 
     log_info "安装 vim-plug..."
+    mkdir -p "$(dirname "$plug_file")"
     safe_download "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim" \
-        --create-dirs -o "$plug_file" 2> /dev/null || {
-        # curl --create-dirs equivalent
-        mkdir -p "$(dirname "$plug_file")"
-        safe_download "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim" "$plug_file" 2> /dev/null || {
-            log_warn "vim-plug 下载失败"
-            return 1
-        }
+        "$plug_file" 2> /dev/null || {
+        log_warn "vim-plug 下载失败"
+        return 1
     }
     log_success "vim-plug 安装完成"
     return 0
@@ -359,10 +356,15 @@ module_uninstall() {
                     continue
                 fi
                 if ! $in_section; then
-                    echo "$line" >> "$tmpfile"
+                    printf '%s\n' "$line" >> "$tmpfile"
                 fi
             done < "$VIMRC_FILE"
-            if $had_content; then
+            # Guard against missing end marker: if still in section at EOF,
+            # the file is malformed — keep original and warn
+            if $in_section; then
+                log_warn "检测到不完整的 EasyWork 标记段，跳过修改"
+                rm -f "$tmpfile"
+            elif $had_content; then
                 mv "$tmpfile" "$VIMRC_FILE"
                 log_success "已移除 EasyWork Vim 配置"
             else

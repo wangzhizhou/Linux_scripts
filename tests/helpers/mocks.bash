@@ -4,7 +4,7 @@
 # ── Setup / Teardown ─────────────────────────────────────────
 # Override HOME to a temp directory so tests don't touch real config
 export TEST_HOME="${BATS_TMPDIR:-/tmp}/easywork_test_home"
-export HOME="$TEST_HOME"
+export HOME="${TEST_HOME}"
 
 # EasyWork variables expected by modules
 export EASYWORK_VERSION="1.0.0"
@@ -13,8 +13,9 @@ export YES_MODE=false
 export VERBOSE=false
 
 # Mock functions that modules call but tests shouldn't execute
+# shellcheck disable=SC2329  # mock functions are invoked via export -f in subprocesses
 setup_mocks() {
-    mkdir -p "$TEST_HOME"
+    mkdir -p "${TEST_HOME}"
 
     # Override manifest and config paths
     export MANIFEST_FILE="${TEST_HOME}/.easywork.manifest"
@@ -24,16 +25,18 @@ setup_mocks() {
     export VIMRC_FILE="${TEST_HOME}/.vimrc"
     export VIM_DIR="${TEST_HOME}/.vim"
     export TEMP_DIR="${TEST_HOME}/tmp"
-    mkdir -p "$TEMP_DIR"
-    export TMPDIR="$TEMP_DIR"
+    mkdir -p "${TEMP_DIR}"
+    export TMPDIR="${TEMP_DIR}"
 
     # Mock curl: capture calls instead of making real network requests
+    # shellcheck disable=SC2329
     function curl() {
         echo "MOCK_CURL: $*" >> "${TEST_HOME}/mock_curl.log"
         return 0
     }
 
     # Mock git for non-destructive testing
+    # shellcheck disable=SC2329
     function git() {
         case "${1:-}" in
             config)
@@ -53,18 +56,21 @@ setup_mocks() {
     }
 
     # Mock vim for non-interactive testing
+    # shellcheck disable=SC2329
     function vim() {
         echo "MOCK_VIM: $*" >> "${TEST_HOME}/mock_vim.log"
         return 0
     }
 
     # Mock brew
+    # shellcheck disable=SC2329
     function brew() {
         echo "MOCK_BREW: $*" >> "${TEST_HOME}/mock_brew.log"
         return 0
     }
 
     # Mock sudo
+    # shellcheck disable=SC2329
     function sudo() {
         shift || true
         echo "MOCK_SUDO: $*" >> "${TEST_HOME}/mock_sudo.log"
@@ -72,18 +78,21 @@ setup_mocks() {
     }
 
     # Mock node
+    # shellcheck disable=SC2329
     function node() {
         echo "v18.0.0"
         return 0
     }
 
     # Mock networksetup (macOS)
+    # shellcheck disable=SC2329
     function networksetup() {
         echo "MOCK_NETWORKSETUP: $*" >> "${TEST_HOME}/mock_networksetup.log"
         return 0
     }
 
     # Mock scutil (macOS)
+    # shellcheck disable=SC2329
     function scutil() {
         echo "MOCK_SCUTIL: $*" >> "${TEST_HOME}/mock_scutil.log"
         return 0
@@ -93,5 +102,5 @@ setup_mocks() {
 }
 
 teardown_mocks() {
-    rm -rf "$TEST_HOME"
+    rm -rf "${TEST_HOME}"
 }
