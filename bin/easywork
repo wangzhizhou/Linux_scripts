@@ -27,9 +27,9 @@ else
     IS_PIPED=false
 fi
 
-# Raw content URL — version-matched for installed binary, main for piped
+# Raw content URL — version-matched; fallback to main when tag is missing
 if $IS_PIPED; then
-    EASYWORK_RAW_URL="${EASYWORK_RAW_URL:-https://raw.githubusercontent.com/EasyIndie/EasyWork/main}"
+    EASYWORK_RAW_URL="${EASYWORK_RAW_URL:-https://raw.githubusercontent.com/EasyIndie/EasyWork/${EASYWORK_VERSION}}"
 else
     EASYWORK_RAW_URL="${EASYWORK_RAW_URL:-https://raw.githubusercontent.com/EasyIndie/EasyWork/${EASYWORK_VERSION}}"
 fi
@@ -74,9 +74,10 @@ else
     fi
 fi
 
-# Channel: dev (development) or empty (release)
-# Piped or local git checkout → dev; installed release binary → release
-if $IS_PIPED || [[ -d "${EASYWORK_ROOT:-}/.git" ]]; then
+# Channel: dev (local git checkout or main-branch piped) or empty (release)
+if [[ -d "${EASYWORK_ROOT:-}/.git" ]]; then
+    EASYWORK_CHANNEL="dev"
+elif $IS_PIPED && [[ "$EASYWORK_RAW_URL" == */main* ]]; then
     EASYWORK_CHANNEL="dev"
 else
     EASYWORK_CHANNEL=""
