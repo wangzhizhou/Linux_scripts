@@ -539,6 +539,10 @@ cmd_uninstall() {
         # Re-source module to ensure correct module_uninstall is in scope
         if [[ -f "${LIB_DIR}/${t}.sh" ]]; then
             source "${LIB_DIR}/${t}.sh"
+            if ! declare -f module_uninstall > /dev/null 2>&1; then
+                log_error "[${t}] 模块文件加载失败，跳过卸载"
+                continue
+            fi
             if module_uninstall; then
                 manifest_remove_section "$t"
                 log_success "[${t}] 已卸载"
