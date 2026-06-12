@@ -67,23 +67,69 @@ jobs:
           ./bin/easywork install --dry-run --yes
           ./bin/easywork uninstall --dry-run --yes --remove-config
 
-      - name: Generate Changelog
-        id: changelog
+      - name: Generate Release Body
         run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/}"
+          cat > /tmp/release-body.md << BODYEOF
+          # EasyWork —— 一条命令，配置好你的开发环境
+
+          适用于 macOS / Linux 的开发环境一键配置工具。Shell 环境、Git 身份与别名、Vim IDE 即装即用。
+
+          ---
+
+          ## 🚀 快速开始
+
+          \`\`\`bash
+          # 一键安装
+          curl -sL https://raw.githubusercontent.com/EasyIndie/EasyWork/${TAG_VERSION}/bin/easywork | bash
+
+          # 配置开发环境
+          easywork install
+          \`\`\`
+
+          > 系统要求：macOS 或 Linux，bash 或 zsh，已安装 curl 和 git。
+
+          ---
+
+          ## 📖 使用指南
+
+          | 命令 | 说明 |
+          |---|---|
+          | \`easywork install\` | 一键安装全部组件 |
+          | \`easywork install <模块>\` | 只安装指定组件（如 \`easywork install git\`） |
+          | \`easywork uninstall\` | 卸载全部组件 |
+          | \`easywork uninstall <模块>\` | 卸载指定组件 |
+          | \`easywork config\` | 查看配置文件 |
+          | \`easywork config edit\` | 编辑配置文件 |
+          | \`easywork version\` | 查看版本和已安装组件 |
+          | \`easywork update\` | 检查并升级到最新版本 |
+          | \`easywork help\` | 显示帮助信息 |
+
+          **全局选项：** \`--dry-run\` 预览 · \`--yes\` / \`-y\` 跳过确认 · \`--verbose\` / \`-v\` 详细输出
+
+          **模块：** shell（Shell 环境 + 别名 + 提示符）· git（身份管理 + 80+ 别名）· vim（19 插件 IDE）
+
+          ---
+
+          ## 📋 变更记录
+
+          BODYEOF
+
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [[ -n "$PREV_TAG" ]]; then
-            echo "## Changes since ${PREV_TAG}" > /tmp/changelog.md
-            git log "${PREV_TAG}..HEAD" --pretty=format:'- %s (%h)' >> /tmp/changelog.md
+            echo "### Changes since ${PREV_TAG}" >> /tmp/release-body.md
+            git log "${PREV_TAG}..HEAD" --pretty=format:'- %s (%h)' >> /tmp/release-body.md
           else
-            echo "## Initial Release" > /tmp/changelog.md
-            git log --pretty=format:'- %s (%h)' >> /tmp/changelog.md
+            echo "### 首次发布" >> /tmp/release-body.md
+            git log --pretty=format:'- %s (%h)' >> /tmp/release-body.md
           fi
-          cat /tmp/changelog.md
+          echo "" >> /tmp/release-body.md
+          cat /tmp/release-body.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          body_path: /tmp/changelog.md
+          body_path: /tmp/release-body.md
           files: |
             bin/easywork
             lib/*.sh
