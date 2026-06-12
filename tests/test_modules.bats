@@ -18,25 +18,29 @@ teardown() { teardown_mocks; }
     [[ -n "$MODULE_DESCRIPTION" ]]
     [[ "$MODULE_PRIORITY" -eq 10 ]]
     # Not installed by default
-    run module_check; [[ "$status" -ne 0 ]]
+    run module_check
+    [[ "$status" -ne 0 ]]
 }
 
 @test "module-shell: module_check true with markers" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
     echo "# >>> EasyWork managed section begin (v1.0.0) >>>" > "$SH_CONFIG_FILE"
     echo "# <<< EasyWork managed section end <<<" >> "$SH_CONFIG_FILE"
-    run module_check; [[ "$status" -eq 0 ]]
+    run module_check
+    [[ "$status" -eq 0 ]]
 }
 
 @test "module-shell: _detect_shell_rc returns a path" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
-    local rc; rc="$(_detect_shell_rc)"
+    local rc
+    rc="$(_detect_shell_rc)"
     [[ "$rc" == "$HOME/"* ]]
 }
 
 @test "module-shell: _generate_shell_config has expected content" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
-    local content; content="$(_generate_shell_config)"
+    local content
+    content="$(_generate_shell_config)"
     # Check for key markers that are always present in generated config
     [[ "$content" =~ "LC_ALL=en_US.UTF-8" ]]
     [[ "$content" =~ "BLACK=\$'\\e[30m'" ]]
@@ -54,26 +58,34 @@ teardown() { teardown_mocks; }
 @test "module-git: variables and module_check" {
     source "${EASYWORK_ROOT}/lib/git.sh"
     [[ "$MODULE_NAME" == "git" ]]
-    run module_check; [[ "$status" -ne 0 ]]
+    run module_check
+    [[ "$status" -ne 0 ]]
 }
 
 @test "module-git: email validation" {
     source "${EASYWORK_ROOT}/lib/git.sh"
-    run _validate_email "user@example.com"; [[ "$status" -eq 0 ]]
-    run _validate_email "invalid-email"; [[ "$status" -ne 0 ]]
-    run _validate_email ""; [[ "$status" -ne 0 ]]
+    run _validate_email "user@example.com"
+    [[ "$status" -eq 0 ]]
+    run _validate_email "invalid-email"
+    [[ "$status" -ne 0 ]]
+    run _validate_email ""
+    [[ "$status" -ne 0 ]]
 }
 
 @test "module-git: name validation" {
     source "${EASYWORK_ROOT}/lib/git.sh"
-    run _validate_name "John Doe"; [[ "$status" -eq 0 ]]
-    run _validate_name ""; [[ "$status" -ne 0 ]]
-    run _validate_name 'name$(evil)'; [[ "$status" -ne 0 ]]
+    run _validate_name "John Doe"
+    [[ "$status" -eq 0 ]]
+    run _validate_name ""
+    [[ "$status" -ne 0 ]]
+    run _validate_name 'name$(evil)'
+    [[ "$status" -ne 0 ]]
 }
 
 @test "module-git: _generate_git_config contains aliases" {
     source "${EASYWORK_ROOT}/lib/git.sh"
-    local content; content="$(_generate_git_config)"
+    local content
+    content="$(_generate_git_config)"
     [[ "$content" =~ "l = log" ]]
     [[ "$content" =~ "s = status" ]]
     [[ "$content" =~ "co = checkout" ]]
@@ -98,12 +110,14 @@ EOF
 @test "module-vim: variables and module_check" {
     source "${EASYWORK_ROOT}/lib/vim.sh"
     [[ "$MODULE_NAME" == "vim" ]]
-    run module_check; [[ "$status" -ne 0 ]]
+    run module_check
+    [[ "$status" -ne 0 ]]
 }
 
 @test "module-vim: _generate_vimrc has plugins and mappings" {
     source "${EASYWORK_ROOT}/lib/vim.sh"
-    local content; content="$(_generate_vimrc)"
+    local content
+    content="$(_generate_vimrc)"
     [[ "$content" =~ "NERDTree" ]]
     [[ "$content" =~ "coc.nvim" ]]
     [[ "$content" =~ "fzf" ]]
@@ -124,7 +138,8 @@ EOF
     manifest_set_section "git" "installed=true"
     manifest_set_section "vim" "installed=true"
 
-    local installed; installed="$(manifest_list_installed)"
+    local installed
+    installed="$(manifest_list_installed)"
     [[ "$installed" =~ "shell" ]]
     [[ "$installed" =~ "git" ]]
     [[ "$installed" =~ "vim" ]]
@@ -135,8 +150,10 @@ EOF
     manifest_set_section "shell" "installed=true"
     manifest_set_section "git" "installed=true"
     manifest_remove_section "shell"
-    run manifest_section_exists "shell"; [[ "$status" -ne 0 ]]
-    run manifest_section_exists "git"; [[ "$status" -eq 0 ]]
+    run manifest_section_exists "shell"
+    [[ "$status" -ne 0 ]]
+    run manifest_section_exists "git"
+    [[ "$status" -eq 0 ]]
 }
 
 @test "integration: partial uninstall leaves others" {
@@ -145,7 +162,8 @@ EOF
     manifest_set_section "git" "installed=true"
     manifest_set_section "vim" "installed=true"
     manifest_remove_section "vim"
-    local installed; installed="$(manifest_list_installed)"
+    local installed
+    installed="$(manifest_list_installed)"
     [[ "$installed" =~ "shell" ]]
     [[ "$installed" =~ "git" ]]
     [[ ! "$installed" =~ "vim" ]]
@@ -169,11 +187,15 @@ EOF
     register_module "aaa" "AAA" 90
     register_module "bbb" "BBB" 10
     register_module "ccc" "CCC" 50
-    local sorted; sorted="$(list_modules_sorted)"
+    local sorted
+    sorted="$(list_modules_sorted)"
     # bbb (10) should come before ccc (50) before aaa (90)
-    local b_pos="${sorted%%bbb*}"; b_pos="${#b_pos}"
-    local c_pos="${sorted%%ccc*}"; c_pos="${#c_pos}"
-    local a_pos="${sorted%%aaa*}"; a_pos="${#a_pos}"
+    local b_pos="${sorted%%bbb*}"
+    b_pos="${#b_pos}"
+    local c_pos="${sorted%%ccc*}"
+    c_pos="${#c_pos}"
+    local a_pos="${sorted%%aaa*}"
+    a_pos="${#a_pos}"
     [[ "$b_pos" -lt "$c_pos" ]]
     [[ "$c_pos" -lt "$a_pos" ]]
 }
@@ -183,7 +205,8 @@ EOF
     manifest_set_section "test" "key1=val1" "key2=val2" "installed=true"
     [[ "$(manifest_read 'key1')" == "val1" ]]
     [[ "$(manifest_read 'key2')" == "val2" ]]
-    run manifest_section_installed "test"; [[ "$status" -eq 0 ]]
+    run manifest_section_installed "test"
+    [[ "$status" -eq 0 ]]
 }
 
 # ── Module Uninstall ───────────────────────────────────────────

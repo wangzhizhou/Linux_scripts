@@ -13,17 +13,20 @@ teardown() { teardown_mocks; }
 # ── System Detection ─────────────────────────────────────────
 
 @test "unit: detect_os returns known value" {
-    local os; os="$(detect_os)"
+    local os
+    os="$(detect_os)"
     [[ "$os" =~ ^(macos|linux|unknown)$ ]]
 }
 
 @test "unit: detect_shell returns valid shell name" {
-    local sh; sh="$(detect_shell)"
+    local sh
+    sh="$(detect_shell)"
     [[ "$sh" =~ ^(zsh|bash|sh|unknown)$ ]]
 }
 
 @test "unit: detect_pkg_manager returns known value" {
-    local pm; pm="$(detect_pkg_manager)"
+    local pm
+    pm="$(detect_pkg_manager)"
     [[ -n "$pm" ]]
 }
 
@@ -60,19 +63,23 @@ teardown() { teardown_mocks; }
 @test "unit: backup_file creates timestamped backup" {
     local f="${TEST_HOME}/testfile"
     echo "original" > "$f"
-    local bak; bak="$(backup_file "$f")"
+    local bak
+    bak="$(backup_file "$f")"
     [[ -f "$bak" ]]
     [[ "$bak" =~ "testfile.bak." ]]
 }
 
 @test "unit: backup_file returns empty for missing file" {
-    local bak; bak="$(backup_file "${TEST_HOME}/noexist")"
+    local bak
+    bak="$(backup_file "${TEST_HOME}/noexist")"
     [[ -z "$bak" ]]
 }
 
 @test "unit: restore_backup restores file" {
-    local f="${TEST_HOME}/orig"; echo "orig" > "$f"
-    local bak="${TEST_HOME}/orig.backup.test"; echo "backup" > "$bak"
+    local f="${TEST_HOME}/orig"
+    echo "orig" > "$f"
+    local bak="${TEST_HOME}/orig.backup.test"
+    echo "backup" > "$bak"
     restore_backup "$bak" "$f"
     [[ "$(cat "$f")" == "backup" ]]
 }
@@ -114,23 +121,28 @@ teardown() { teardown_mocks; }
 
 @test "unit: manifest lifecycle" {
     rm -f "$MANIFEST_FILE"
-    run manifest_exists; [[ "$status" -ne 0 ]]
+    run manifest_exists
+    [[ "$status" -ne 0 ]]
 
     manifest_init "1.0.0"
-    run manifest_exists; [[ "$status" -eq 0 ]]
+    run manifest_exists
+    [[ "$status" -eq 0 ]]
     [[ "$(manifest_get_version)" == "1.0.0" ]]
 
     manifest_set_section "shell" "installed=true" "shell_type=zsh"
-    run manifest_section_exists "shell"; [[ "$status" -eq 0 ]]
+    run manifest_section_exists "shell"
+    [[ "$status" -eq 0 ]]
     [[ "$(manifest_read 'shell_type')" == "zsh" ]]
     [[ "$(manifest_read 'missing' 'default')" == "default" ]]
 
-    run manifest_section_installed "shell"; [[ "$status" -eq 0 ]]
+    run manifest_section_installed "shell"
+    [[ "$status" -eq 0 ]]
     run manifest_list_installed
     [[ "$output" =~ "shell" ]]
 
     manifest_remove_section "shell"
-    run manifest_section_exists "shell"; [[ "$status" -ne 0 ]]
+    run manifest_section_exists "shell"
+    [[ "$status" -ne 0 ]]
 
     manifest_clear
     [[ ! -f "$MANIFEST_FILE" ]]
@@ -140,20 +152,24 @@ teardown() { teardown_mocks; }
     echo "garbage line" > "$MANIFEST_FILE"
     run manifest_read 'anykey' 'fallback'
     [[ "$output" == "fallback" ]]
-    run manifest_section_exists "anything"; [[ "$status" -ne 0 ]]
+    run manifest_section_exists "anything"
+    [[ "$status" -ne 0 ]]
 }
 
 @test "unit: manifest section_installed false for missing" {
     manifest_init "1.0.0"
-    run manifest_section_installed "nonexistent"; [[ "$status" -ne 0 ]]
+    run manifest_section_installed "nonexistent"
+    [[ "$status" -ne 0 ]]
 }
 
 # ── Module Registry ──────────────────────────────────────────
 
 @test "unit: module registry operations" {
     register_module "testmod" "Test Module" 10
-    run module_registered "testmod"; [[ "$status" -eq 0 ]]
-    run module_registered "noexist"; [[ "$status" -ne 0 ]]
+    run module_registered "testmod"
+    [[ "$status" -eq 0 ]]
+    run module_registered "noexist"
+    [[ "$status" -ne 0 ]]
 }
 
 @test "unit: register_module rejects reserved names" {
@@ -165,25 +181,40 @@ teardown() { teardown_mocks; }
     register_module "dupmod" "First" 10
     register_module "dupmod" "Second" 20
     # Should not crash, still registered
-    run module_registered "dupmod"; [[ "$status" -eq 0 ]]
+    run module_registered "dupmod"
+    [[ "$status" -eq 0 ]]
 }
 
 @test "unit: empty module registry is safe" {
-    run list_modules_sorted; [[ -z "$output" ]]
-    run list_modules; [[ "$status" -eq 0 ]]
+    run list_modules_sorted
+    [[ -z "$output" ]]
+    run list_modules
+    [[ "$status" -eq 0 ]]
 }
 
 # ── Semver ───────────────────────────────────────────────────
 
-_sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
+_sv() {
+    set +e
+    _semver_compare "$1" "$2"
+    local rc=$?
+    set -e
+    return $rc
+}
 
 @test "unit: semver comparisons" {
-    run _sv "1.0.0" "1.0.0"; [[ "$status" -eq 0 ]]
-    run _sv "2.0.0" "1.9.9"; [[ "$status" -eq 1 ]]
-    run _sv "1.2.0" "1.1.9"; [[ "$status" -eq 1 ]]
-    run _sv "1.0.1" "1.0.0"; [[ "$status" -eq 1 ]]
-    run _sv "0.9.0" "1.0.0"; [[ "$status" -eq 2 ]]
-    run _sv "0.0.0" "0.0.0"; [[ "$status" -eq 0 ]]
+    run _sv "1.0.0" "1.0.0"
+    [[ "$status" -eq 0 ]]
+    run _sv "2.0.0" "1.9.9"
+    [[ "$status" -eq 1 ]]
+    run _sv "1.2.0" "1.1.9"
+    [[ "$status" -eq 1 ]]
+    run _sv "1.0.1" "1.0.0"
+    [[ "$status" -eq 1 ]]
+    run _sv "0.9.0" "1.0.0"
+    [[ "$status" -eq 2 ]]
+    run _sv "0.0.0" "0.0.0"
+    [[ "$status" -eq 0 ]]
 }
 
 # ── Managed Section ──────────────────────────────────────────
@@ -236,7 +267,8 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
 # ── String Escaping Helpers ──────────────────────────────────
 
 @test "unit: _escape_regex escapes metacharacters" {
-    local r; r="$(_escape_regex "key.with.dots")"
+    local r
+    r="$(_escape_regex "key.with.dots")"
     [[ "$r" == 'key\.with\.dots' ]]
     r="$(_escape_regex "[bracket]")"
     [[ "$r" == '\[bracket\]' ]]
@@ -245,7 +277,8 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
 }
 
 @test "unit: _escape_sed_replacement escapes sed chars" {
-    local r; r="$(_escape_sed_replacement "a/b")"
+    local r
+    r="$(_escape_sed_replacement "a/b")"
     # Escaped output contains backslash+slash sequence \/
     [[ "$r" == *'\'/* ]]
     r="$(_escape_sed_replacement "foo&bar")"
@@ -255,18 +288,30 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
 
 # ── Semver with v-prefix ─────────────────────────────────────
 
-_sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
+_sv() {
+    set +e
+    _semver_compare "$1" "$2"
+    local rc=$?
+    set -e
+    return $rc
+}
 
 @test "unit: semver handles v prefix from GitHub tags" {
-    run _sv "v2.0.0" "v1.0.0"; [[ "$status" -eq 1 ]]
-    run _sv "v1.0.0" "1.0.0"; [[ "$status" -eq 0 ]]
-    run _sv "1.0.0" "v1.0.0"; [[ "$status" -eq 0 ]]
-    run _sv "v0.9.0" "1.0.0"; [[ "$status" -eq 2 ]]
+    run _sv "v2.0.0" "v1.0.0"
+    [[ "$status" -eq 1 ]]
+    run _sv "v1.0.0" "1.0.0"
+    [[ "$status" -eq 0 ]]
+    run _sv "1.0.0" "v1.0.0"
+    [[ "$status" -eq 0 ]]
+    run _sv "v0.9.0" "1.0.0"
+    [[ "$status" -eq 2 ]]
 }
 
 @test "unit: semver strips pre-release suffixes" {
-    run _sv "2.0.0" "1.9.9-alpha"; [[ "$status" -eq 1 ]]
-    run _sv "1.0.0" "1.0.0-rc1"; [[ "$status" -eq 0 ]]
+    run _sv "2.0.0" "1.9.9-alpha"
+    [[ "$status" -eq 1 ]]
+    run _sv "1.0.0" "1.0.0-rc1"
+    [[ "$status" -eq 0 ]]
 }
 
 # ── Module Name Validation ──────────────────────────────────
@@ -288,7 +333,8 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
 
 @test "unit: register_module accepts valid names with hyphens" {
     register_module "valid-name" "test" 99
-    run module_registered "valid-name"; [[ "$status" -eq 0 ]]
+    run module_registered "valid-name"
+    [[ "$status" -eq 0 ]]
     # Clean up to avoid polluting other tests
     MODULE_NAMES=()
     MODULE_DESCRIPTIONS=()
@@ -319,9 +365,13 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
 
 @test "unit: safe_download single-arg writes to stdout" {
     # Mock curl to echo a known value
-    function curl() { echo "downloaded-content"; return 0; }
-    export -f curl 2>/dev/null || true
-    local result; result="$(safe_download "https://example.com/file")"
+    function curl() {
+        echo "downloaded-content"
+        return 0
+    }
+    export -f curl 2> /dev/null || true
+    local result
+    result="$(safe_download "https://example.com/file")"
     [[ "$result" == "downloaded-content" ]]
 }
 
@@ -332,13 +382,16 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
         local output_file=""
         local prev=""
         for arg in "$@"; do
-            [[ "$prev" == "-o" ]] && { output_file="$arg"; break; }
+            [[ "$prev" == "-o" ]] && {
+                output_file="$arg"
+                break
+            }
             prev="$arg"
         done
         [[ -n "$output_file" ]] && echo "file-content" > "$output_file"
         return 0
     }
-    export -f curl 2>/dev/null || true
+    export -f curl 2> /dev/null || true
     safe_download "https://example.com/file" "$outfile"
     [[ -f "$outfile" ]]
     [[ "$(cat "$outfile")" == "file-content" ]]
@@ -350,7 +403,7 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
         echo "$*" >> "${TEST_HOME}/safe_download_flags.log"
         return 0
     }
-    export -f curl 2>/dev/null || true
+    export -f curl 2> /dev/null || true
     safe_download "https://example.com/file" "out.txt" --retry 5
     grep -q "retry" "${TEST_HOME}/safe_download_flags.log" || true
 }
@@ -359,16 +412,19 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
 
 @test "unit: check_network with curl available" {
     function curl() { return 0; }
-    export -f curl 2>/dev/null || true
-    function has_cmd() { [[ "$1" == "curl" ]]; return $?; }
-    export -f has_cmd 2>/dev/null || true
+    export -f curl 2> /dev/null || true
+    function has_cmd() {
+        [[ "$1" == "curl" ]]
+        return $?
+    }
+    export -f has_cmd 2> /dev/null || true
     run check_network
     [[ "$status" -eq 0 ]]
 }
 
 @test "unit: check_network with no tool returns error" {
     function has_cmd() { return 1; }
-    export -f has_cmd 2>/dev/null || true
+    export -f has_cmd 2> /dev/null || true
     run check_network
     [[ "$status" -ne 0 ]]
 }
@@ -376,37 +432,54 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
 # ── format_date_human ──────────────────────────────────────────
 
 @test "unit: format_date_human with ISO-8601 input" {
-    local result; result="$(format_date_human "2026-06-12T10:15:30+0800")"
+    local result
+    result="$(format_date_human "2026-06-12T10:15:30+0800")"
     [[ -n "$result" ]]
     [[ "$result" != "unknown" ]]
 }
 
 @test "unit: format_date_human with empty input returns unknown" {
-    local result; result="$(format_date_human "")"
+    local result
+    result="$(format_date_human "")"
     [[ "$result" == "unknown" || "$result" == "" ]]
 }
 
 @test "unit: format_date_human with unknown text returns fallback" {
-    local result; result="$(format_date_human "unknown")"
+    local result
+    result="$(format_date_human "unknown")"
     [[ "$result" == "unknown" ]]
 }
 
 # ── _escape_regex remaining metacharacters ─────────────────────
 
 @test "unit: _escape_regex escapes backslash and caret" {
-    local r; r="$(_escape_regex '\')"; [[ "$r" == '\\' ]]
-    local s; s="$(_escape_regex '^')";  [[ "$s" == '\^' ]]
+    local r
+    r="$(_escape_regex '\')"
+    [[ "$r" == '\\' ]]
+    local s
+    s="$(_escape_regex '^')"
+    [[ "$s" == '\^' ]]
 }
 
 @test "unit: _escape_regex escapes dollar and pipe" {
-    local r; r="$(_escape_regex '$')"; [[ "$r" == '\$' ]]
-    local s; s="$(_escape_regex '|')"; [[ "$s" == '\|' ]]
+    local r
+    r="$(_escape_regex '$')"
+    [[ "$r" == '\$' ]]
+    local s
+    s="$(_escape_regex '|')"
+    [[ "$s" == '\|' ]]
 }
 
 @test "unit: _escape_regex escapes parens and question" {
-    local r; r="$(_escape_regex '(')"; [[ "$r" == '\(' ]]
-    local s; s="$(_escape_regex ')')"; [[ "$s" == '\)' ]]
-    local t; t="$(_escape_regex '?')"; [[ "$t" == '\?' ]]
+    local r
+    r="$(_escape_regex '(')"
+    [[ "$r" == '\(' ]]
+    local s
+    s="$(_escape_regex ')')"
+    [[ "$s" == '\)' ]]
+    local t
+    t="$(_escape_regex '?')"
+    [[ "$t" == '\?' ]]
 }
 
 # ── _semver_is_newer ──────────────────────────────────────────
@@ -440,7 +513,7 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
     LOCK_FILE="${TEST_HOME}/.easywork_test_reentrant.lock"
     LOCK_FD=201
     acquire_lock
-    run acquire_lock  # second call should succeed
+    run acquire_lock # second call should succeed
     [[ "$status" -eq 0 ]]
     release_lock
 }
@@ -449,7 +522,7 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
 
 @test "unit: preflight_check succeeds with common tools" {
     function has_cmd() { return 0; }
-    export -f has_cmd 2>/dev/null || true
+    export -f has_cmd 2> /dev/null || true
     run preflight_check
     [[ "$status" -eq 0 ]]
 }

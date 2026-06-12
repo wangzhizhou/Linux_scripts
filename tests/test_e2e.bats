@@ -121,13 +121,13 @@ teardown() {
 }
 
 @test "e2e: version shows installed components" {
-    easywork install --yes 2>/dev/null
+    easywork install --yes 2> /dev/null
     run easywork version
     [[ "$output" =~ "已安装组件" ]]
 }
 
 @test "e2e: full uninstall cleanup" {
-    easywork install --yes 2>/dev/null
+    easywork install --yes 2> /dev/null
     run easywork uninstall --yes --remove-config
     [[ "$status" -eq 0 ]]
     [[ ! -f "$TEST_HOME/.easywork.manifest" ]]
@@ -151,7 +151,7 @@ teardown() {
 }
 
 @test "e2e: partial uninstall keeps others" {
-    easywork install --yes 2>/dev/null
+    easywork install --yes 2> /dev/null
     run easywork uninstall vim --yes
     [[ "$status" -eq 0 ]]
     run cat "$TEST_HOME/.easywork.manifest"
@@ -183,7 +183,7 @@ EOF
 # ─── F: Cache ───────────────────────────────────────────────
 
 @test "e2e: cache reused on second run" {
-    easywork version 2>/dev/null
+    easywork version 2> /dev/null
     rm -f "$TEST_HOME/.local/bin/curl"
     run easywork version
     [[ "$status" -eq 0 ]]
