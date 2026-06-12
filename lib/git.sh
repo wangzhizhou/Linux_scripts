@@ -99,7 +99,7 @@ _select_identity() {
     echo "    2) work      — ${GIT_WORK_NAME:-'(未配置)'} <${GIT_WORK_EMAIL:-'(未配置)'}>"
     echo "    3) custom    — 手动输入"
 
-    local choice
+    local choice identity_type
     if [[ "${YES_MODE:-false}" != "true" ]]; then
         read -r -p "  请选择 [1-3]: " choice
     else
@@ -111,10 +111,12 @@ _select_identity() {
         1)
             GIT_USER_NAME="${GIT_PERSONAL_NAME:-}"
             GIT_USER_EMAIL="${GIT_PERSONAL_EMAIL:-}"
+            identity_type="personal"
             ;;
         2)
             GIT_USER_NAME="${GIT_WORK_NAME:-}"
             GIT_USER_EMAIL="${GIT_WORK_EMAIL:-}"
+            identity_type="work"
             ;;
         3)
             if [[ "${YES_MODE:-false}" != "true" ]]; then
@@ -199,16 +201,22 @@ _select_identity() {
             log_success "已记录 Git 身份: ${GIT_USER_NAME} <${GIT_USER_EMAIL}>"
 
             # Save to config file for future use
-            local save_config="y"
-            read -r -p "  保存到配置文件以便下次使用？[Y/n] " save_config
-            if [[ ! "$save_config" =~ ^[Nn] ]]; then
-                if $name_is_placeholder; then
-                    _save_config_var "git" "GIT_PERSONAL_NAME" "$GIT_USER_NAME"
+            if [[ "$identity_type" == "personal" ]]; then
+                local save_config="y"
+                read -r -p "  保存到配置文件以便下次使用？[Y/n] " save_config
+                if [[ ! "$save_config" =~ ^[Nn] ]]; then
+                    $name_is_placeholder && _save_config_var "git" "GIT_PERSONAL_NAME" "$GIT_USER_NAME"
+                    $email_is_placeholder && _save_config_var "git" "GIT_PERSONAL_EMAIL" "$GIT_USER_EMAIL"
+                    log_info "已保存到 $(config_path)"
                 fi
-                if $email_is_placeholder; then
-                    _save_config_var "git" "GIT_PERSONAL_EMAIL" "$GIT_USER_EMAIL"
+            elif [[ "$identity_type" == "work" ]]; then
+                local save_config="y"
+                read -r -p "  保存到配置文件以便下次使用？[Y/n] " save_config
+                if [[ ! "$save_config" =~ ^[Nn] ]]; then
+                    $name_is_placeholder && _save_config_var "git" "GIT_WORK_NAME" "$GIT_USER_NAME"
+                    $email_is_placeholder && _save_config_var "git" "GIT_WORK_EMAIL" "$GIT_USER_EMAIL"
+                    log_info "已保存到 $(config_path)"
                 fi
-                log_info "已保存到 $(config_path)"
             fi
         fi
     fi
