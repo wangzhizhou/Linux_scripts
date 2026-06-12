@@ -103,7 +103,7 @@ check_network() {
 safe_download() {
     local url="$1"
     local output="${2:-}"
-    if (( $# >= 2 )); then
+    if (($# >= 2)); then
         shift 2
     else
         shift
