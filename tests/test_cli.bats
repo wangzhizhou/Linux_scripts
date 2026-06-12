@@ -21,7 +21,8 @@ teardown() { teardown_mocks; }
 @test "cli: version shows version" {
     run bash "${BATS_TEST_DIRNAME}/../bin/easywork" version
     [[ "$status" -eq 0 ]]
-    [[ "$output" =~ "EasyWork 0" ]]}
+    [[ "$output" =~ "EasyWork 0" ]]
+}
 
 @test "cli: unknown command shows help" {
     run bash "${BATS_TEST_DIRNAME}/../bin/easywork" nonexistent_command
