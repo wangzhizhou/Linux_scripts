@@ -62,7 +62,7 @@ teardown() {
     run easywork version
     [[ "$status" -eq 0 ]]
     [[ "$output" =~ "EasyWork" ]]
-    [[ -f "$TEST_HOME/.easywork/lib/v1.0.0/common.sh" ]]
+    [[ -f "$TEST_HOME/.easywork/lib/v0.0.1/common.sh" ]]
 }
 
 @test "e2e: standalone binary help lists modules" {
