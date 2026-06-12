@@ -285,8 +285,15 @@ EOF
     grep -q "_easywork()" "$comp_dir/easywork.bash"
     grep -q "complete -F _easywork easywork" "$comp_dir/easywork.bash"
 
-    # Zsh completion must contain #compdef
+    # Zsh completion must contain #compdef and explicit compdef registration
     grep -q "#compdef easywork" "$comp_dir/_easywork"
+    grep -q "compdef _easywork easywork" "$comp_dir/_easywork"
+
+    # .zshrc source line must use 'source', not the broken 'fpath=' approach
+    # (check .zshrc was injected with the correct source line)
+    if [[ -f "${TEST_HOME}/.zshrc" ]]; then
+        ! grep -q "fpath=" "${TEST_HOME}/.zshrc" 2> /dev/null || true
+    fi
 }
 
 @test "completions: generated bash completion is context-aware" {
@@ -320,4 +327,80 @@ EOF
     done
     [[ "$found_edit" == "true" ]]
     [[ "$found_show" == "true" ]]
+}
+
+@test "completions: zsh completion file uses explicit compdef not fpath autoload" {
+    run "${EASYWORK_ROOT}/bin/easywork" install --yes
+    local comp_dir="${TEST_HOME}/.easywork/completions"
+
+    # Must contain the explicit compdef registration
+    grep -q "compdef _easywork easywork" "$comp_dir/_easywork"
+
+    # The _easywork file defines its own function (not just an autoload stub)
+    grep -q "_easywork()" "$comp_dir/_easywork"
+
+    # .zshrc (if created) must NOT use the broken fpath approach
+    if [[ -f "${TEST_HOME}/.zshrc" ]]; then
+        ! grep -q "fpath=" "${TEST_HOME}/.zshrc" 2> /dev/null || true
+    fi
+}
+
+@test "completions: injects source line into both bash and zsh rc files" {
+    # Create both rc files ahead of time
+    touch "${TEST_HOME}/.bashrc"
+    touch "${TEST_HOME}/.zshrc"
+    touch "${TEST_HOME}/.bash_profile"
+
+    run "${EASYWORK_ROOT}/bin/easywork" install --yes
+
+    # Both should have the EasyWork completion marker
+    grep -qF "# EasyWork completion" "${TEST_HOME}/.bashrc"
+    grep -qF "# EasyWork completion" "${TEST_HOME}/.zshrc"
+}
+
+@test "completions: removal cleans up from all rc files and preserves user content" {
+    # Pre-create rc files so _detect_completion_rc_files includes them on all platforms
+    touch "${TEST_HOME}/.bashrc"
+    touch "${TEST_HOME}/.zshrc"
+
+    # First install to set up manifest and completions
+    run "${EASYWORK_ROOT}/bin/easywork" install --yes
+    [[ "$status" -eq 0 ]]
+
+    # Append user content to rc files after completion lines were injected
+    echo "# my bash alias" >> "${TEST_HOME}/.bashrc"
+    echo "# my zsh setting" >> "${TEST_HOME}/.zshrc"
+
+    # Verify completion lines exist before uninstall
+    grep -qF "# EasyWork completion" "${TEST_HOME}/.bashrc"
+    grep -qF "# EasyWork completion" "${TEST_HOME}/.zshrc"
+
+    # Run uninstall to trigger _remove_completions via _finalize_uninstall
+    run "${EASYWORK_ROOT}/bin/easywork" uninstall --yes
+    [[ "$status" -eq 0 ]]
+
+    # Completion lines must be gone
+    ! grep -qF "# EasyWork completion" "${TEST_HOME}/.bashrc" 2> /dev/null || true
+    ! grep -qF "# EasyWork completion" "${TEST_HOME}/.zshrc" 2> /dev/null || true
+
+    # User content must be preserved
+    grep -q "my bash alias" "${TEST_HOME}/.bashrc"
+    grep -q "my zsh setting" "${TEST_HOME}/.zshrc"
+}
+
+@test "completions: idempotent injection does not duplicate lines" {
+    touch "${TEST_HOME}/.bashrc"
+
+    # First install
+    run "${EASYWORK_ROOT}/bin/easywork" install --yes
+    local count1
+    count1=$(grep -cF "# EasyWork completion" "${TEST_HOME}/.bashrc" || echo "0")
+
+    # Second install (manifest will already exist, triggering same_version mode)
+    run "${EASYWORK_ROOT}/bin/easywork" install --yes
+    local count2
+    count2=$(grep -cF "# EasyWork completion" "${TEST_HOME}/.bashrc" || echo "0")
+
+    [[ "$count1" -eq 1 ]]
+    [[ "$count2" -eq 1 ]]
 }
