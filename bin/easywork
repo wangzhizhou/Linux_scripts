@@ -323,7 +323,7 @@ _easywork() {
 
     local global_opts="--yes -y --dry-run --verbose -v"
     local uninstall_opts="--keep-config --remove-config"
-    local commands="install uninstall config version update help"
+    local commands="install uninstall config version update help completion"
     local modules="${mod_list}"
 
     local cmd=""
@@ -359,8 +359,8 @@ BASH_COMP
 # DO NOT EDIT — regenerated on 'easywork install'
 
 _easywork() {
-    local -a commands modules
-    commands=(install uninstall config version update help)
+    local -a cmds modules
+    cmds=(install uninstall config version update help completion)
     modules=(${mod_list})
 
     _arguments -C \\
@@ -371,7 +371,7 @@ _easywork() {
         '-v[详细输出]' \\
         '--keep-config[卸载时保留配置文件]' \\
         '--remove-config[卸载时删除配置文件]' \\
-        "1:命令:(\$commands \$modules)" \\
+        "1:命令:(\$cmds \$modules)" \\
         '*::参数:->args'
 
     case "\$state" in
@@ -385,7 +385,10 @@ _easywork() {
 }
 
 # Register explicitly — this file is sourced directly, not autoloaded via fpath
-compdef _easywork easywork
+# Guard: skip if compinit has not been loaded (minimal zsh setups)
+if typeset -f compdef > /dev/null 2>&1; then
+    compdef _easywork easywork
+fi
 ZSH_COMP
 
     # ── Inject source lines into all detected shell rc files ──
@@ -486,6 +489,7 @@ cmd_install() {
 
     # Determine install mode
     local install_mode="fresh"
+    local _run_modules=true
     if manifest_exists; then
         local installed_ver
         installed_ver="$(manifest_get_version)" || installed_ver="0.0.0"
@@ -520,19 +524,19 @@ cmd_install() {
                 local answer
                 read -r -p "  重新应用配置？[y/N] " answer
                 if [[ ! "$answer" =~ ^[Yy] ]]; then
-                    release_lock
-                    return $EXIT_SUCCESS
+                    _run_modules=false
                 fi
             else
-                release_lock
-                return $EXIT_SUCCESS
+                _run_modules=false
             fi
-            log_info "刷新配置..."
+            if $_run_modules; then
+                log_info "刷新配置..."
+            fi
             ;;
     esac
 
     # Run all modules (skip in piped mode — CLI binary only)
-    if ! $IS_PIPED; then
+    if ! $IS_PIPED && $_run_modules; then
         local sorted
         sorted="$(list_modules_sorted)" || {
             log_error "无法获取模块列表"
@@ -729,6 +733,58 @@ _finalize_uninstall() {
     fi
 }
 
+# ─── CLI: Completion ───────────────────────────────────────
+cmd_completion() {
+    local sub="${1:-setup}"
+    case "$sub" in
+        setup | install)
+            _discover_modules "$LIB_DIR"
+            _setup_completions
+            ;;
+        remove | uninstall | clean)
+            _remove_completions
+            log_success "Shell 补全已移除"
+            ;;
+        status | show)
+            local comp_dir="$HOME/.easywork/completions"
+            echo "补全文件目录: ${comp_dir}"
+            echo ""
+            if [[ -f "$comp_dir/easywork.bash" ]]; then
+                echo "  bash: ${comp_dir}/easywork.bash ✓"
+            else
+                echo "  bash: (未安装)"
+            fi
+            if [[ -f "$comp_dir/_easywork" ]]; then
+                echo "  zsh:  ${comp_dir}/_easywork ✓"
+            else
+                echo "  zsh:  (未安装)"
+            fi
+            echo ""
+            echo "已注入的 shell 配置文件:"
+            local found_any=false
+            local sh_type rc_file
+            while IFS=: read -r sh_type rc_file; do
+                if [[ -f "$rc_file" ]] && grep -qF "# EasyWork completion" "$rc_file" 2> /dev/null; then
+                    echo "  ${sh_type}: ${rc_file} ✓"
+                    found_any=true
+                fi
+            done < <(_detect_completion_rc_files)
+            if ! $found_any; then
+                echo "  (无 — 运行 easywork completion setup 安装补全)"
+            fi
+            ;;
+        *)
+            echo "用法: easywork completion <子命令>"
+            echo ""
+            echo "子命令:"
+            echo "  setup    生成并注入补全到 shell 配置文件"
+            echo "  remove   从 shell 配置文件移除补全"
+            echo "  status   查看补全安装状态"
+            exit $EXIT_ERROR
+            ;;
+    esac
+}
+
 # ─── CLI: Help ────────────────────────────────────────────────
 cmd_help() {
     local module_count=0
@@ -750,6 +806,7 @@ EasyWork — 开发环境一键配置 ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ ($
   config edit          编辑配置文件
   version              查看版本和已安装组件信息
   update               检查并升级到最新版本
+  completion           安装、移除或查看 shell 补全状态
 
 EOF
 
@@ -861,6 +918,10 @@ main() {
         config)
             shift || true
             cmd_config "$@"
+            ;;
+        completion | comp)
+            shift || true
+            cmd_completion "$@"
             ;;
         version)
             cmd_version
