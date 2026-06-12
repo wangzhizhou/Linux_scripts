@@ -82,7 +82,7 @@ teardown() {
 @test "e2e: config creates generic config" {
     run easywork config
     [[ "$status" -eq 0 ]]
-    run cat "$TEST_HOME/.easywork.conf"
+    run cat "$TEST_HOME/.easywork/config"
     [[ ! "$output" =~ "Your Name" ]]
 }
 
@@ -96,7 +96,7 @@ teardown() {
 
 @test "e2e: piped reinstall overwrites" {
     mkdir -p "$TEST_HOME/.easywork"
-    echo "easywork_version=1.0.0" > "$TEST_HOME/.easywork.manifest"
+    echo "easywork_version=1.0.0" > "$TEST_HOME/.easywork/manifest"
     run bash -c "cat ${EASYWORK_ROOT}/bin/easywork | PATH=${TEST_HOME}/.local/bin:\$PATH HOME=${TEST_HOME} bash -s -- install --dry-run" 2>&1
     [[ "$output" =~ "CLI 准备就绪" ]]
 }
@@ -114,9 +114,9 @@ teardown() {
 @test "e2e: install --yes creates files" {
     run easywork install --yes
     [[ "$status" -eq 0 ]]
-    [[ -f "$TEST_HOME/.easywork.manifest" ]]
+    [[ -f "$TEST_HOME/.easywork/manifest" ]]
     [[ -f "$TEST_HOME/.sh_config_custom" ]]
-    run cat "$TEST_HOME/.easywork.manifest"
+    run cat "$TEST_HOME/.easywork/manifest"
     [[ "$output" =~ "shell" ]]
 }
 
@@ -130,7 +130,7 @@ teardown() {
     easywork install --yes 2> /dev/null
     run easywork uninstall --yes --remove-config
     [[ "$status" -eq 0 ]]
-    [[ ! -f "$TEST_HOME/.easywork.manifest" ]]
+    [[ ! -f "$TEST_HOME/.easywork/manifest" ]]
 }
 
 # ─── D: Single module ───────────────────────────────────────
@@ -154,7 +154,7 @@ teardown() {
     easywork install --yes 2> /dev/null
     run easywork uninstall vim --yes
     [[ "$status" -eq 0 ]]
-    run cat "$TEST_HOME/.easywork.manifest"
+    run cat "$TEST_HOME/.easywork/manifest"
     [[ "$output" =~ "shell" ]]
     [[ ! "$output" =~ "vim" ]]
 }
@@ -162,7 +162,8 @@ teardown() {
 # ─── E: Git specifics ───────────────────────────────────────
 
 @test "e2e: git with config values" {
-    cat > "$TEST_HOME/.easywork.conf" << 'EOF'
+    mkdir -p "$TEST_HOME/.easywork"
+    cat > "$TEST_HOME/.easywork/config" << 'EOF'
 ## git
 GIT_PERSONAL_NAME="Test User"
 GIT_PERSONAL_EMAIL="test@example.com"
@@ -173,7 +174,8 @@ EOF
 }
 
 @test "e2e: git dry-run with empty config uses dummy values" {
-    echo "# empty" > "$TEST_HOME/.easywork.conf"
+    mkdir -p "$TEST_HOME/.easywork"
+    echo "# empty" > "$TEST_HOME/.easywork/config"
     run easywork install git --dry-run --yes
     [[ "$status" -eq 0 ]]
     # Dry-run fills in dummy values for preview

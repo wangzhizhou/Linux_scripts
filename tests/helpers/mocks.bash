@@ -18,14 +18,15 @@ setup_mocks() {
     mkdir -p "${TEST_HOME}"
 
     # Override manifest and config paths
-    export MANIFEST_FILE="${TEST_HOME}/.easywork.manifest"
-    export CONFIG_FILE="${TEST_HOME}/.easywork.conf"
+    export MANIFEST_FILE="${TEST_HOME}/.easywork/manifest"
+    export CONFIG_FILE="${TEST_HOME}/.easywork/config"
     export SH_CONFIG_FILE="${TEST_HOME}/.sh_config_custom"
     export GIT_CONFIG_FILE="${TEST_HOME}/.gitconfig"
     export VIMRC_FILE="${TEST_HOME}/.vimrc"
     export VIM_DIR="${TEST_HOME}/.vim"
     export TEMP_DIR="${TEST_HOME}/tmp"
     mkdir -p "${TEMP_DIR}"
+    mkdir -p "${TEST_HOME}/.easywork"
     export TMPDIR="${TEMP_DIR}"
 
     # Mock curl: capture calls instead of making real network requests

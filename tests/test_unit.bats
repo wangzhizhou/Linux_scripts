@@ -88,7 +88,7 @@ teardown() { teardown_mocks; }
 
 @test "unit: config_path returns path" {
     run config_path
-    [[ "$output" =~ ".easywork.conf" ]]
+    [[ "$output" =~ ".easywork/config" ]]
 }
 
 @test "unit: config_init creates config" {

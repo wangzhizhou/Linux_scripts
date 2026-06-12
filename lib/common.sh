@@ -9,6 +9,16 @@ set -euo pipefail
 # Version (set by bin/easywork; default for standalone module usage)
 EASYWORK_VERSION="${EASYWORK_VERSION:-1.0.0}"
 
+# EasyWork home directory — centralizes all CLI config, manifest, cache, and completions
+EASYWORK_HOME="${HOME}/.easywork"
+
+# Ensure the home directory exists
+_ensure_easywork_home() {
+    if [[ ! -d "$EASYWORK_HOME" ]]; then
+        mkdir -p "$EASYWORK_HOME"
+    fi
+}
+
 # ─── Exit Codes ───────────────────────────────────────────────
 export EXIT_SUCCESS=0
 export EXIT_ERROR=1
@@ -216,7 +226,7 @@ replace_managed_section() {
 }
 
 # ─── Manifest Management ──────────────────────────────────────
-MANIFEST_FILE="$HOME/.easywork.manifest"
+MANIFEST_FILE="${EASYWORK_HOME}/manifest"
 
 manifest_file() { echo "$MANIFEST_FILE"; }
 
@@ -259,6 +269,7 @@ manifest_list_installed() {
 
 manifest_init() {
     local version="$1"
+    _ensure_easywork_home
     cat > "$MANIFEST_FILE" << EOF
 # EasyWork Manifest — auto-generated, do not edit
 easywork_version=${version}
@@ -411,7 +422,7 @@ manifest_read_section_key() {
 }
 
 # ─── Config File Management ───────────────────────────────────
-CONFIG_FILE="${HOME}/.easywork.conf"
+CONFIG_FILE="${EASYWORK_HOME}/config"
 CONFIG_EXAMPLE="${EASYWORK_ROOT:-.}/easywork.conf.example"
 
 config_path() { echo "$CONFIG_FILE"; }
@@ -426,6 +437,7 @@ config_load() {
 }
 
 config_init() {
+    _ensure_easywork_home
     if ! config_exists; then
         if [[ -f "$CONFIG_EXAMPLE" ]]; then
             cp "$CONFIG_EXAMPLE" "$CONFIG_FILE"
