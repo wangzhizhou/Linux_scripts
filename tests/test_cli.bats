@@ -46,5 +46,5 @@ teardown() { teardown_mocks; }
 
 @test "cli: config shows path" {
     run bash "${BATS_TEST_DIRNAME}/../bin/easywork" config
-    [[ "$output" =~ "配置文件路径" ]] || [[ "$output" =~ ".easywork.conf" ]]
+    [[ "$output" =~ "配置文件路径" ]] || [[ "$output" =~ ".easywork/config" ]]
 }

@@ -56,7 +56,7 @@ easywork <命令> [参数] [选项]
 | `uninstall` | 卸载全部组件 |
 | `uninstall <模块名>` | 卸载指定组件 |
 | `config` | 查看配置文件内容及元信息 |
-| `config edit` | 编辑配置文件（`~/.easywork.conf`） |
+| `config edit` | 编辑配置文件（`~/.easywork/config`） |
 | `version` | 查看版本、安装日期和已安装组件 |
 | `update` | 检查并升级到最新版本 |
 | `help` | 显示帮助信息 |
@@ -329,7 +329,7 @@ easywork <命令> [参数] [选项]
 
 ## 配置说明
 
-EasyWork 的配置文件位于 `~/.easywork.conf`。当你运行 `easywork git` 并选择 personal 或 work 身份后，EasyWork 会自动将身份信息写回该配置文件，下次无需重新输入。
+EasyWork 的配置文件位于 `~/.easywork/config`。当你运行 `easywork git` 并选择 personal 或 work 身份后，EasyWork 会自动将身份信息写回该配置文件，下次无需重新输入。
 
 示例配置内容：
 

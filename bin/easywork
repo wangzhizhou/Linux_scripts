@@ -31,7 +31,7 @@ fi
 if $IS_PIPED; then
     EASYWORK_RAW_URL="${EASYWORK_RAW_URL:-https://raw.githubusercontent.com/EasyIndie/EasyWork/main}"
 else
-    EASYWORK_RAW_URL="${EASYWORK_RAW_URL:-https://raw.githubusercontent.com/EasyIndie/EasyWork/v${EASYWORK_VERSION}}"
+    EASYWORK_RAW_URL="${EASYWORK_RAW_URL:-https://raw.githubusercontent.com/EasyIndie/EasyWork/${EASYWORK_VERSION}}"
 fi
 
 # ─── Source Common Library ────────────────────────────────────
@@ -45,30 +45,38 @@ else
     _CACHE_DIR="$HOME/.easywork/lib/v${EASYWORK_VERSION}"
     mkdir -p "$_CACHE_DIR"
 
-    _download_common() {
-        curl -fsSL --proto '=https' --tlsv1.2 --retry 3 \
-            -o "$_CACHE_DIR/common.sh" \
-            "${EASYWORK_RAW_URL}/lib/common.sh" 2> /dev/null
-    }
+    # Check cache first — avoids re-downloading on every invocation
+    if [[ -f "$_CACHE_DIR/common.sh" ]]; then
+        source "$_CACHE_DIR/common.sh"
+        LIB_DIR="$_CACHE_DIR"
+    else
+        mkdir -p "$_CACHE_DIR"
 
-    if ! _download_common; then
-        # Fallback: version tag doesn't exist → use main branch
-        echo "[WARN] 版本 tag 不存在，使用 main 分支" >&2
-        EASYWORK_RAW_URL="https://raw.githubusercontent.com/EasyIndie/EasyWork/main"
+        _download_common() {
+            curl -fsSL --proto '=https' --tlsv1.2 --retry 3 \
+                -o "$_CACHE_DIR/common.sh" \
+                "${EASYWORK_RAW_URL}/lib/common.sh" 2> /dev/null
+        }
+
         if ! _download_common; then
-            echo "[ERROR] 无法下载 common.sh，请检查网络连接"
-            echo "[INFO]  URL: ${EASYWORK_RAW_URL}/lib/common.sh"
-            exit 2
+            # Fallback: version tag doesn't exist → use main branch
+            echo "[WARN] 版本 tag 不存在，使用 main 分支" >&2
+            EASYWORK_RAW_URL="https://raw.githubusercontent.com/EasyIndie/EasyWork/main"
+            if ! _download_common; then
+                echo "[ERROR] 无法下载 common.sh，请检查网络连接"
+                echo "[INFO]  URL: ${EASYWORK_RAW_URL}/lib/common.sh"
+                exit 2
+            fi
         fi
-    fi
 
-    source "$_CACHE_DIR/common.sh"
-    LIB_DIR="$_CACHE_DIR"
+        source "$_CACHE_DIR/common.sh"
+        LIB_DIR="$_CACHE_DIR"
+    fi
 fi
 
 # Channel: dev (development) or empty (release)
-# Local checkout or main-branch URL → dev; standalone with version tag → release
-if $IS_PIPED || [[ "${EASYWORK_RAW_URL:-}" == *"/main" ]] || [[ -d "${EASYWORK_ROOT:-}/.git" ]]; then
+# Piped or local git checkout → dev; installed release binary → release
+if $IS_PIPED || [[ -d "${EASYWORK_ROOT:-}/.git" ]]; then
     EASYWORK_CHANNEL="dev"
 else
     EASYWORK_CHANNEL=""
@@ -662,7 +670,7 @@ _finalize_uninstall() {
     else
         local answer="y"
         if [[ "${YES_MODE:-false}" != "true" ]]; then
-            read -r -p "  保留 ~/.easywork.conf 以便将来使用？[Y/n] " answer
+            read -r -p "  保留 $(config_path) 以便将来使用？[Y/n] " answer
         elif [[ "${REMOVE_CONFIG:-false}" == "true" ]]; then
             answer="n"
         else
