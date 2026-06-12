@@ -46,11 +46,11 @@ if $COLOR_ENABLED; then
 fi
 
 # ─── Logging ──────────────────────────────────────────────────
-log_info()    { printf "  %s●%s %s\n" "${C_CYAN}" "${C_RESET}" "$*"; }
+log_info() { printf "  %s●%s %s\n" "${C_CYAN}" "${C_RESET}" "$*"; }
 log_success() { printf "  %s✓%s %s\n" "${C_GREEN}" "${C_RESET}" "$*"; }
-log_warn()    { printf "  %s!%s %s\n" "${C_YELLOW}" "${C_RESET}" "$*" >&2; }
-log_error()   { printf "  %s✗%s %s\n" "${C_RED}" "${C_RESET}" "$*" >&2; }
-log_verbose() { [[ "${VERBOSE:-false}" == "true" ]] && printf "  %s[DEBUG]%s %s\n" "${C_PURPLE}" "${C_RESET}" "$*"; }
+log_warn() { printf "  %s!%s %s\n" "${C_YELLOW}" "${C_RESET}" "$*" >&2; }
+log_error() { printf "  %s✗%s %s\n" "${C_RED}" "${C_RESET}" "$*" >&2; }
+log_verbose() { [[ "${VERBOSE:-false}" == "true" ]] && printf "  %s[DEBUG]%s %s\n" "${C_PURPLE}" "${C_RESET}" "$*" >&2; }
 
 # ─── System Detection ─────────────────────────────────────────
 detect_os() {
@@ -103,7 +103,7 @@ check_network() {
 safe_download() {
     local url="$1"
     local output="${2:-}"
-    shift 2 2>/dev/null || true
+    shift 2 2> /dev/null || true
     local opts=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --retry-connrefused)
     if [[ -n "$output" ]]; then
         curl "${opts[@]}" "$@" -o "$output" "$url"
@@ -159,33 +159,35 @@ replace_managed_section() {
     if [[ ! -f "$file" ]]; then
         # File doesn't exist — create with managed section
         {
-            echo "$begin_marker"
-            echo "$content"
-            echo "$end_marker"
+            printf '%s\n' "$begin_marker"
+            printf '%s\n' "$content"
+            printf '%s\n' "$end_marker"
         } > "$file"
         return 0
     fi
 
-    # Comment-agnostic detection: matches old # markers and new " markers
-    if grep -qF "EasyWork managed section begin" "$file" 2>/dev/null; then
+    # Comment-agnostic detection: match distinctive marker text to avoid
+    # false positives on content lines that casually mention "EasyWork"
+    if grep -qE "managed section begin" "$file" 2> /dev/null; then
         # Managed section exists — replace it (comment-agnostic matching for cross-version compat)
         local tmpfile
         tmpfile="${file}.tmp.$$"
+        _register_temp_file "$tmpfile"
         local in_section=false
         while IFS= read -r line; do
-            if [[ "$line" =~ "EasyWork managed section begin" ]]; then
+            if [[ "$line" =~ "managed section begin" ]]; then
                 in_section=true
-                echo "$begin_marker" >> "$tmpfile"
-                echo "$content" >> "$tmpfile"
+                printf '%s\n' "$begin_marker" >> "$tmpfile"
+                printf '%s\n' "$content" >> "$tmpfile"
                 continue
             fi
-            if [[ "$line" =~ "EasyWork managed section end" ]]; then
+            if [[ "$line" =~ "managed section end" ]]; then
                 in_section=false
-                echo "$end_marker" >> "$tmpfile"
+                printf '%s\n' "$end_marker" >> "$tmpfile"
                 continue
             fi
             if ! $in_section; then
-                echo "$line" >> "$tmpfile"
+                printf '%s\n' "$line" >> "$tmpfile"
             fi
         done < "$file"
         mv "$tmpfile" "$file"
@@ -193,11 +195,12 @@ replace_managed_section() {
         # No managed section — prepend
         local tmpfile
         tmpfile="${file}.tmp.$$"
+        _register_temp_file "$tmpfile"
         {
-            echo "$begin_marker"
-            echo "$content"
-            echo "$end_marker"
-            echo ""
+            printf '%s\n' "$begin_marker"
+            printf '%s\n' "$content"
+            printf '%s\n' "$end_marker"
+            printf '%s\n' ""
             cat "$file"
         } > "$tmpfile"
         mv "$tmpfile" "$file"
@@ -216,7 +219,11 @@ manifest_read() {
     local default="${2:-}"
     if manifest_exists; then
         local val
-        val="$(grep -E "^${key}=" "$MANIFEST_FILE" 2> /dev/null | head -1 | cut -d= -f2-)"
+        # Escape key for safe regex matching; || true prevents set -e from
+        # firing when grep returns 1 (no match — a normal, expected case)
+        local escaped_key
+        escaped_key="$(_escape_regex "$key")"
+        val="$(grep -E "^${escaped_key}=" "$MANIFEST_FILE" 2> /dev/null | head -1 | cut -d= -f2- || true)"
         echo "${val:-$default}"
     else
         echo "$default"
@@ -255,7 +262,8 @@ manifest_write() {
     local manifest_data="$1"
     local tmpfile
     tmpfile="${MANIFEST_FILE}.tmp.$$"
-    echo "$manifest_data" > "$tmpfile"
+    _register_temp_file "$tmpfile"
+    printf '%s\n' "$manifest_data" > "$tmpfile"
     mv "$tmpfile" "$MANIFEST_FILE"
 }
 
@@ -319,8 +327,8 @@ manifest_remove_section() {
 
     # Remove trailing blank lines
     # Remove trailing blank lines (portable awk instead of BSD/GNU sed)
-    new_manifest="$(echo "$new_manifest" | awk 'NF{last=NR}; {lines[NR]=$0} END{for(i=1;i<=last;i++) print lines[i]}')"
-    echo "$new_manifest" > "$MANIFEST_FILE"
+    new_manifest="$(printf '%s\n' "$new_manifest" | awk 'NF{last=NR}; {lines[NR]=$0} END{for(i=1;i<=last;i++) print lines[i]}')"
+    printf '%s\n' "$new_manifest" > "$MANIFEST_FILE"
 }
 
 manifest_clear() {
@@ -345,12 +353,12 @@ format_date_human() {
         macos)
             # BSD date: -j for dry-run parse, -f for input format
             formatted="$(date -j -f "%Y-%m-%dT%H:%M:%S%z" "$raw_date" \
-                "+%Y年%m月%d日 %H:%M:%S %Z" 2>/dev/null || true)"
+                "+%Y年%m月%d日 %H:%M:%S %Z" 2> /dev/null || true)"
             ;;
         *)
             # GNU date: -d for date string parsing
             formatted="$(date -d "$raw_date" \
-                "+%Y年%m月%d日 %H:%M:%S %Z" 2>/dev/null || true)"
+                "+%Y年%m月%d日 %H:%M:%S %Z" 2> /dev/null || true)"
             ;;
     esac
 
@@ -371,6 +379,10 @@ manifest_read_section_key() {
         return
     fi
 
+    # Escape key for safe regex matching
+    local escaped_key
+    escaped_key="$(_escape_regex "$key")"
+
     local in_section=false
     while IFS= read -r line; do
         if [[ "$line" == "[${section}]" ]]; then
@@ -379,9 +391,9 @@ manifest_read_section_key() {
         fi
         if $in_section; then
             if [[ "$line" == "["*"]" ]]; then
-                break  # reached next section, stop
+                break # reached next section, stop
             fi
-            if [[ "$line" =~ ^${key}= ]]; then
+            if [[ "$line" =~ ^${escaped_key}= ]]; then
                 echo "${line#*=}"
                 return
             fi
@@ -430,23 +442,32 @@ _save_config_var() {
         config_init
     fi
 
+    # Escape key for regex use (grep -E / sed)
+    local escaped_key
+    escaped_key="$(_escape_regex "$key")"
+    # Escape value for sed replacement side
+    local escaped_value
+    escaped_value="$(_escape_sed_replacement "$value")"
+
     # Ensure section marker exists
-    if ! grep -qF "$section_marker" "$CONFIG_FILE" 2>/dev/null; then
-        echo "" >> "$CONFIG_FILE"
-        echo "$section_marker" >> "$CONFIG_FILE"
+    if ! grep -qF "$section_marker" "$CONFIG_FILE" 2> /dev/null; then
+        printf '\n' >> "$CONFIG_FILE"
+        printf '%s\n' "$section_marker" >> "$CONFIG_FILE"
     fi
 
     # Upsert key=value
-    if grep -q "^${key}=" "$CONFIG_FILE" 2>/dev/null; then
+    if grep -q "^${escaped_key}=" "$CONFIG_FILE" 2> /dev/null; then
         local tmpfile="${CONFIG_FILE}.tmp.$$"
-        sed "s/^${key}=.*/${key}=\"${value}\"/" "$CONFIG_FILE" > "$tmpfile" 2>/dev/null
+        _register_temp_file "$tmpfile"
+        sed "s/^${escaped_key}=.*/${key}=\"${escaped_value}\"/" "$CONFIG_FILE" > "$tmpfile" 2> /dev/null
         mv "$tmpfile" "$CONFIG_FILE"
     else
         # Insert after section marker
         local tmpfile="${CONFIG_FILE}.tmp.$$"
+        _register_temp_file "$tmpfile"
         while IFS= read -r line; do
-            echo "$line" >> "$tmpfile"
-            [[ "$line" == "$section_marker" ]] && echo "${key}=\"${value}\"" >> "$tmpfile"
+            printf '%s\n' "$line" >> "$tmpfile"
+            [[ "$line" == "$section_marker" ]] && printf '%s\n' "${key}=\"${value}\"" >> "$tmpfile"
         done < "$CONFIG_FILE"
         mv "$tmpfile" "$CONFIG_FILE"
     fi
@@ -464,9 +485,9 @@ config_show() {
         file_size="$(wc -c < "$cfg_file" | tr -d ' ')"
         line_count="$(wc -l < "$cfg_file" | tr -d ' ')"
         if [[ "$(detect_os)" == "macos" ]]; then
-            mod_time="$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$cfg_file" 2>/dev/null || echo 'unknown')"
+            mod_time="$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$cfg_file" 2> /dev/null || echo 'unknown')"
         else
-            mod_time="$(stat -c "%y" "$cfg_file" 2>/dev/null | cut -d. -f1 || echo 'unknown')"
+            mod_time="$(stat -c "%y" "$cfg_file" 2> /dev/null | cut -d. -f1 || echo 'unknown')"
         fi
 
         echo "  文件大小: ${file_size} 字节"
@@ -482,7 +503,7 @@ config_show() {
         cat "$cfg_file"
 
         # Show hint when config has no actual key=value pairs (template-only file)
-        if ! grep -qE '^[a-zA-Z_][a-zA-Z0-9_]*=' "$cfg_file" 2>/dev/null; then
+        if ! grep -qE '^[a-zA-Z_][a-zA-Z0-9_]*=' "$cfg_file" 2> /dev/null; then
             echo ""
             echo "（配置文件尚无配置项，可通过 'easywork config edit' 编辑添加）"
         fi
@@ -526,6 +547,20 @@ register_module() {
     local reserved="^(install|uninstall|config|version|update)$"
     if [[ "$name" =~ $reserved ]]; then
         log_error "模块名 '$name' 与内置命令冲突"
+        exit $EXIT_ERROR
+    fi
+
+    # Validate: no whitespace, control chars, path traversal, or special chars
+    if [[ "$name" =~ [[:space:]] ]] || [[ "$name" =~ [[:cntrl:]] ]]; then
+        log_error "模块名包含非法空白/控制字符: '$name'"
+        exit $EXIT_ERROR
+    fi
+    if [[ "$name" =~ [/] ]] || [[ "$name" == ".." ]]; then
+        log_error "模块名包含路径穿越字符: '$name'"
+        exit $EXIT_ERROR
+    fi
+    if [[ "$name" =~ [^a-zA-Z0-9_-] ]]; then
+        log_error "模块名包含非法字符（仅允许字母、数字、-、_）: '$name'"
         exit $EXIT_ERROR
     fi
 
@@ -597,9 +632,14 @@ _semver_compare() {
     IFS=. read -ra b <<< "${2:-0.0.0}"
     for i in 0 1 2; do
         local ai=${a[$i]:-0}
-        ai=${ai//[!0-9]/}
+        # Strip leading v prefix (GitHub tag style) and pre-release suffix
+        ai="${ai#v}"
+        ai="${ai%%[-+]*}"
+        ai="${ai:-0}"
         local bi=${b[$i]:-0}
-        bi=${bi//[!0-9]/}
+        bi="${bi#v}"
+        bi="${bi%%[-+]*}"
+        bi="${bi:-0}"
         if ((ai > bi)); then return 1; fi
         if ((ai < bi)); then return 2; fi
     done
@@ -620,18 +660,19 @@ LOCK_FD=200
 acquire_lock() {
     local timeout="${1:-30}"
 
-    # Try flock (Linux) first
+    # Try flock (Linux) first — not available on macOS by default.
+    # When flock is absent or fails, we fall through to shlock or mkdir.
     if has_cmd flock; then
         eval "exec ${LOCK_FD}> \"$LOCK_FILE\""
-        if flock -w "$timeout" "$LOCK_FD" 2>/dev/null; then
+        if flock -w "$timeout" "$LOCK_FD" 2> /dev/null; then
             return 0
         fi
-        eval "exec ${LOCK_FD}>&-" 2>/dev/null || true
+        eval "exec ${LOCK_FD}>&-" 2> /dev/null || true
     fi
 
     # Try shlock (macOS)
     if has_cmd shlock; then
-        if shlock -f "$LOCK_FILE" -p $$ 2>/dev/null; then
+        if shlock -f "$LOCK_FILE" -p $$ 2> /dev/null; then
             return 0
         fi
     fi
@@ -640,7 +681,7 @@ acquire_lock() {
     local lock_dir="${LOCK_FILE}.dir"
     local start
     start=$(date +%s)
-    while ! mkdir "$lock_dir" 2>/dev/null; do
+    while ! mkdir "$lock_dir" 2> /dev/null; do
         local now
         now=$(date +%s)
         if ((now - start >= timeout)); then
@@ -657,20 +698,19 @@ acquire_lock() {
 release_lock() {
     # Release flock if active
     if [[ -n "${LOCK_FD:-}" ]]; then
-        flock -u "$LOCK_FD" 2>/dev/null || true
-        eval "exec ${LOCK_FD}>&-" 2>/dev/null || true
+        flock -u "$LOCK_FD" 2> /dev/null || true
+        eval "exec ${LOCK_FD}>&-" 2> /dev/null || true
     fi
     # Clean up mkdir-based lock directory
     if [[ "$LOCK_FILE" == *.dir ]] && [[ -d "$LOCK_FILE" ]]; then
-        rmdir "$LOCK_FILE" 2>/dev/null || true
+        rmdir "$LOCK_FILE" 2> /dev/null || true
     elif [[ -f "$LOCK_FILE" ]]; then
-        rm -f "$LOCK_FILE" 2>/dev/null || true
+        rm -f "$LOCK_FILE" 2> /dev/null || true
     fi
     LOCK_FD=""
 }
 
 # ─── Signal Handling ──────────────────────────────────────────
-TEMP_FILES=""
 
 cleanup_on_interrupt() {
     log_warn "操作被中断"
@@ -679,6 +719,9 @@ cleanup_on_interrupt() {
         # shellcheck disable=SC2086
         rm -f $TEMP_FILES
     fi
+    # Safety net: clean common tmp patterns for this PID
+    rm -f "${HOME}/.easywork"*.tmp."$$" 2> /dev/null || true
+    rm -f "${TMPDIR:-/tmp}/easywork"*.tmp."$$" 2> /dev/null || true
     exit $EXIT_INTERRUPT
 }
 
@@ -692,6 +735,8 @@ preflight_check() {
     has_cmd curl || missing+=("curl")
     has_cmd git || missing+=("git")
     has_cmd bash || missing+=("bash")
+    has_cmd awk || missing+=("awk")
+    has_cmd sed || missing+=("sed")
 
     if ! has_cmd zsh; then
         optional_missing+=("zsh (Oh My Zsh 将跳过)")
@@ -728,4 +773,38 @@ ensure_deps() {
         return $EXIT_MISSING_DEPS
     fi
     return $EXIT_SUCCESS
+}
+
+# ─── String Escaping Helpers ──────────────────────────────────
+
+# Escape regex metacharacters for safe use in grep -E / [[ =~ ]]
+_escape_regex() {
+    sed -e 's/\\/\\\\/g' \
+        -e 's/\./\\./g' \
+        -e 's/\*/\\*/g' \
+        -e 's/\[/\\[/g' \
+        -e 's/\]/\\]/g' \
+        -e 's/\^/\\^/g' \
+        -e 's/\$/\\$/g' \
+        -e 's/|/\\|/g' \
+        -e 's/(/\\(/g' \
+        -e 's/)/\\)/g' \
+        -e 's/\+/\\+/g' \
+        -e 's/?/\\?/g' \
+        <<< "$1"
+}
+
+# Escape value for safe use in sed s/// replacement (handles \ & /)
+_escape_sed_replacement() {
+    sed -e 's/\\/\\\\/g' \
+        -e 's/&/\\&/g' \
+        -e 's/\//\\\//g' \
+        <<< "$1"
+}
+
+# ─── Temp File Tracking (for signal cleanup) ──────────────────
+TEMP_FILES=""
+
+_register_temp_file() {
+    TEMP_FILES="${TEMP_FILES}${TEMP_FILES:+ }$1"
 }

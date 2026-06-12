@@ -66,7 +66,7 @@ setup_mocks() {
 
     # Mock sudo
     function sudo() {
-        shift 2> /dev/null || true
+        shift || true
         echo "MOCK_SUDO: $*" >> "${TEST_HOME}/mock_sudo.log"
         return 0
     }

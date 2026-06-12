@@ -232,3 +232,83 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
     [[ "$EXIT_ERROR" -ne 0 ]]
     [[ "$EXIT_MISSING_DEPS" -ne 0 ]]
 }
+
+# ── String Escaping Helpers ──────────────────────────────────
+
+@test "unit: _escape_regex escapes metacharacters" {
+    local r; r="$(_escape_regex "key.with.dots")"
+    [[ "$r" == 'key\.with\.dots' ]]
+    r="$(_escape_regex "[bracket]")"
+    [[ "$r" == '\[bracket\]' ]]
+    r="$(_escape_regex "star*plus+")"
+    [[ "$r" == 'star\*plus\+' ]]
+}
+
+@test "unit: _escape_sed_replacement escapes sed chars" {
+    local r; r="$(_escape_sed_replacement "a/b")"
+    [[ -n "$r" ]] && ! [[ "$r" == */* ]]
+    r="$(_escape_sed_replacement "foo&bar")"
+    [[ -n "$r" ]] && ! [[ "$r" == *'&'* ]]
+}
+
+# ── Semver with v-prefix ─────────────────────────────────────
+
+_sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
+
+@test "unit: semver handles v prefix from GitHub tags" {
+    run _sv "v2.0.0" "v1.0.0"; [[ "$status" -eq 1 ]]
+    run _sv "v1.0.0" "1.0.0"; [[ "$status" -eq 0 ]]
+    run _sv "1.0.0" "v1.0.0"; [[ "$status" -eq 0 ]]
+    run _sv "v0.9.0" "1.0.0"; [[ "$status" -eq 2 ]]
+}
+
+@test "unit: semver strips pre-release suffixes" {
+    run _sv "2.0.0" "1.9.9-alpha"; [[ "$status" -eq 1 ]]
+    run _sv "1.0.0" "1.0.0-rc1"; [[ "$status" -eq 0 ]]
+}
+
+# ── Module Name Validation ──────────────────────────────────
+
+@test "unit: register_module rejects names with spaces" {
+    run register_module "bad name" "desc"
+    [[ "$status" -ne 0 ]]
+}
+
+@test "unit: register_module rejects names with slashes" {
+    run register_module "bad/name" "desc"
+    [[ "$status" -ne 0 ]]
+}
+
+@test "unit: register_module rejects names with dots" {
+    run register_module "bad.name" "desc"
+    [[ "$status" -ne 0 ]]
+}
+
+@test "unit: register_module accepts valid names with hyphens" {
+    register_module "valid-name" "test" 99
+    run module_registered "valid-name"; [[ "$status" -eq 0 ]]
+    # Clean up to avoid polluting other tests
+    MODULE_NAMES=()
+    MODULE_DESCRIPTIONS=()
+    MODULE_PRIORITY_VALUES=()
+}
+
+# ── Manifest Read with Section Key ───────────────────────────
+
+@test "unit: manifest_read_section_key reads from correct section" {
+    manifest_init "1.0.0"
+    manifest_set_section "git" "installed=true" "config_backup=/bak/git.bak"
+    manifest_set_section "vim" "installed=true" "config_backup=/bak/vim.bak"
+    [[ "$(manifest_read_section_key 'git' 'config_backup')" == '/bak/git.bak' ]]
+    [[ "$(manifest_read_section_key 'vim' 'config_backup')" == '/bak/vim.bak' ]]
+    # Non-existent key returns default
+    [[ "$(manifest_read_section_key 'git' 'missing' 'fallback')" == 'fallback' ]]
+}
+
+# ── Manifest Read escapes regex ──────────────────────────────
+
+@test "unit: manifest_read escapes dot in key" {
+    manifest_init "1.0.0"
+    manifest_set_section "test" "key.with.dots=works"
+    [[ "$(manifest_read_section_key 'test' 'key.with.dots')" == 'works' ]]
+}

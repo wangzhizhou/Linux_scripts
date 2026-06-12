@@ -81,7 +81,10 @@ _select_scope() {
             GIT_SCOPE="local"
             GIT_CONFIG_FILE="$(git rev-parse --show-toplevel)/.git/config"
             ;;
-        *) log_error "无效选择"; return 1 ;;
+        *)
+            log_error "无效选择"
+            return 1
+            ;;
     esac
 
     log_info "配置级别: ${GIT_SCOPE}"
@@ -467,7 +470,7 @@ module_install() {
 # ─── Module: Uninstall ────────────────────────────────────────
 module_uninstall() {
     local scope
-    scope="$(manifest_read 'scope')"
+    scope="$(manifest_read_section_key 'git' 'scope')"
     scope="${scope:-global}"
 
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
@@ -478,10 +481,10 @@ module_uninstall() {
     if [[ "$scope" == "local" ]]; then
         # ——— Local repo config: git config --local --unset ———
         local repo
-        repo="$(manifest_read 'repo')"
+        repo="$(manifest_read_section_key 'git' 'repo')"
         if [[ -n "$repo" ]] && [[ -d "$repo/.git" ]]; then
-            git -C "$repo" config --local --unset user.name 2>/dev/null || true
-            git -C "$repo" config --local --unset user.email 2>/dev/null || true
+            git -C "$repo" config --local --unset user.name 2> /dev/null || true
+            git -C "$repo" config --local --unset user.email 2> /dev/null || true
             log_success "已移除仓库级 Git 身份"
         else
             log_warn "仓库目录不存在，跳过"
@@ -492,7 +495,7 @@ module_uninstall() {
     # ——— Global config uninstall ———
     # Try to restore backup
     local config_backup
-    config_backup="$(manifest_read 'config_backup')"
+    config_backup="$(manifest_read_section_key 'git' 'config_backup')"
     if [[ -n "$config_backup" ]] && [[ -f "$config_backup" ]]; then
         local answer="y"
         if [[ "${YES_MODE:-false}" != "true" ]]; then

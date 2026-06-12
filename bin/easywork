@@ -48,7 +48,7 @@ else
     _download_common() {
         curl -fsSL --proto '=https' --tlsv1.2 --retry 3 \
             -o "$_CACHE_DIR/common.sh" \
-            "${EASYWORK_RAW_URL}/lib/common.sh" 2>/dev/null
+            "${EASYWORK_RAW_URL}/lib/common.sh" 2> /dev/null
     }
 
     if ! _download_common; then
@@ -86,11 +86,16 @@ _discover_modules() {
     if [[ -n "${_CACHE_DIR:-}" ]] && [[ "$lib_dir" == "$_CACHE_DIR" ]]; then
         # Download module index, then each listed module
         local modules_list
-        modules_list="$(safe_download "${EASYWORK_RAW_URL}/MODULES" 2>/dev/null || true)"
+        modules_list="$(safe_download "${EASYWORK_RAW_URL}/MODULES" 2> /dev/null || true)"
         if [[ -n "$modules_list" ]]; then
             for mod in $modules_list; do
                 [[ -n "$mod" ]] || continue
-                [[ -f "${_CACHE_DIR}/${mod}.sh" ]] || safe_download "${EASYWORK_RAW_URL}/lib/${mod}.sh" "${_CACHE_DIR}/${mod}.sh" 2>/dev/null || true
+                # Reject module names with path traversal or unsafe characters
+                if [[ "$mod" =~ [/] ]] || [[ "$mod" == ".." ]] || [[ "$mod" =~ [[:cntrl:]] ]] || [[ "$mod" =~ [^a-zA-Z0-9_-] ]]; then
+                    log_warn "跳过非法模块名: $mod"
+                    continue
+                fi
+                [[ -f "${_CACHE_DIR}/${mod}.sh" ]] || safe_download "${EASYWORK_RAW_URL}/lib/${mod}.sh" "${_CACHE_DIR}/${mod}.sh" 2> /dev/null || true
             done
         fi
     fi
@@ -177,6 +182,12 @@ cmd_update() {
         latest_version="$(safe_download "${EASYWORK_RAW_URL}/VERSION" 2> /dev/null | head -1 | tr -d '[:space:]')" || true
     fi
 
+    # Normalize: ensure v prefix for GitHub release URL compatibility.
+    # API returns "v1.0.0"; VERSION file has "1.0.0" (no v).
+    if [[ -n "$latest_version" ]] && [[ "$latest_version" != v* ]]; then
+        latest_version="v${latest_version}"
+    fi
+
     if [[ -z "$latest_version" ]]; then
         log_error "无法检查更新，请检查网络连接"
         return $EXIT_NETWORK
@@ -238,13 +249,18 @@ _detect_rc_file() {
     local os_type sh_type
     os_type="$(detect_os)"
     sh_type="$(detect_shell)"
+    # zsh always uses .zshrc regardless of OS
+    if [[ "$sh_type" == "zsh" ]]; then
+        echo "$HOME/.zshrc"
+        return
+    fi
     case "$os_type" in
         macos)
             case "$sh_type" in
-                zsh) echo "$HOME/.zshrc" ;;
                 bash) echo "$HOME/.bash_profile" ;;
                 *) echo "$HOME/.bashrc" ;;
-            esac ;;
+            esac
+            ;;
         *) echo "$HOME/.bashrc" ;;
     esac
 }
@@ -261,8 +277,8 @@ _setup_completions() {
     # Build dynamic command list: built-in + registered modules
     local subcommands="install uninstall config version update"
     local mod_list
-    mod_list="$(list_modules_sorted 2>/dev/null | tr '\n' ' ' || true)"
-    [[ -n "${mod_list// }" ]] && subcommands="$subcommands $mod_list"
+    mod_list="$(list_modules_sorted 2> /dev/null | tr '\n' ' ' || true)"
+    [[ -n "${mod_list// /}" ]] && subcommands="$subcommands $mod_list"
 
     # Bash completion
     cat > "$comp_dir/easywork.bash" << BASH_COMP
@@ -291,7 +307,7 @@ ZSH_COMP
         source_line="source $comp_dir/easywork.bash  # EasyWork completion"
     fi
 
-    if ! grep -qF "$source_line" "$rc_file" 2>/dev/null; then
+    if ! grep -qF "$source_line" "$rc_file" 2> /dev/null; then
         echo "" >> "$rc_file"
         echo "$source_line" >> "$rc_file"
         log_success "Shell 补全已配置 (${rc_file})"
@@ -316,12 +332,12 @@ _remove_completions() {
             source_line="source $comp_dir/easywork.bash  # EasyWork completion"
         fi
         local tmpfile="${rc_file}.tmp.$$"
-        grep -vF "$source_line" "$rc_file" > "$tmpfile" 2>/dev/null || true
+        grep -vF "$source_line" "$rc_file" > "$tmpfile" 2> /dev/null || true
         mv "$tmpfile" "$rc_file"
     fi
 
     rm -f "$comp_dir/easywork.bash" "$comp_dir/_easywork"
-    rmdir "$comp_dir" 2>/dev/null || true
+    rmdir "$comp_dir" 2> /dev/null || true
 }
 
 # ─── CLI: Install ─────────────────────────────────────────────
@@ -377,7 +393,7 @@ cmd_install() {
     local install_mode="fresh"
     if manifest_exists; then
         local installed_ver
-        installed_ver="$(manifest_get_version)"
+        installed_ver="$(manifest_get_version)" || installed_ver="0.0.0"
         if [[ "$installed_ver" == "$EASYWORK_VERSION" ]]; then
             install_mode="same_version"
         elif _semver_is_newer "$EASYWORK_VERSION" "$installed_ver"; then
@@ -422,32 +438,41 @@ cmd_install() {
 
     # Run all modules (skip in piped mode — CLI binary only)
     if ! $IS_PIPED; then
-	local sorted
-	sorted="$(list_modules_sorted)"
+        local sorted
+        sorted="$(list_modules_sorted)" || {
+            log_error "无法获取模块列表"
+            release_lock
+            return $EXIT_ERROR
+        }
 
-	for name in $sorted; do
-        # Filter by target if specified
-        [[ -n "$target" && "$name" != "$target" ]] && continue
-        echo ""
-        log_info "配置 ${name}..."
-        # Re-source module file so the correct module_install is in scope
-        if [[ -f "${LIB_DIR}/${name}.sh" ]]; then
-            source "${LIB_DIR}/${name}.sh"
-        fi
-        if module_install; then
-            manifest_set_section "$name" \
-                "installed=true"
-            log_success "${name} 完成"
-        else
-            log_error "[${name}] 失败"
-        fi
-    done
+        for name in $sorted; do
+            # Filter by target if specified
+            [[ -n "$target" && "$name" != "$target" ]] && continue
+            echo ""
+            log_info "配置 ${name}..."
+            # Re-source module file so the correct module_install is in scope
+            if [[ -f "${LIB_DIR}/${name}.sh" ]]; then
+                source "${LIB_DIR}/${name}.sh"
+            fi
+            if module_install; then
+                manifest_set_section "$name" \
+                    "installed=true"
+                log_success "${name} 完成"
+            else
+                log_error "[${name}] 失败"
+            fi
+        done
     fi
 
     # Update manifest version
     if manifest_exists; then
         local manifest_tmp
-        manifest_tmp="$(mktemp)"
+        manifest_tmp="$(mktemp)" || {
+            log_error "无法创建临时文件 (mktemp 失败)"
+            release_lock
+            return $EXIT_ERROR
+        }
+        _register_temp_file "$manifest_tmp"
         sed "s/^easywork_version=.*/easywork_version=${EASYWORK_VERSION}/" "$MANIFEST_FILE" > "$manifest_tmp"
         mv "$manifest_tmp" "$MANIFEST_FILE"
     fi
@@ -455,10 +480,10 @@ cmd_install() {
     echo ""
     if $IS_PIPED; then
         local channel_label="${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
-    log_success "EasyWork ${EASYWORK_VERSION}${channel_label} CLI 准备就绪"
+        log_success "EasyWork ${EASYWORK_VERSION}${channel_label} CLI 准备就绪"
     else
         local channel_label="${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
-    log_success "EasyWork ${EASYWORK_VERSION}${channel_label} 安装完成 🎉"
+        log_success "EasyWork ${EASYWORK_VERSION}${channel_label} 安装完成 🎉"
         log_info "运行 easywork 查看可用命令"
     fi
 
@@ -475,7 +500,7 @@ cmd_install() {
         if [[ -n "${install_path:-}" ]]; then
             if safe_download "${EASYWORK_RAW_URL}/bin/easywork" "$install_path" 2> /dev/null; then
                 chmod +x "$install_path"
-                if ! echo "$PATH" | grep -q "$(dirname "$install_path")"; then
+                if ! echo ":$PATH:" | grep -q ":$(dirname "$install_path"):"; then
                     log_warn "$(dirname "$install_path") 不在 \$PATH 中"
                     log_info "请添加以下行到你的 shell 配置: export PATH=\"$(dirname "$install_path"):\$PATH\""
                 fi
@@ -546,6 +571,7 @@ cmd_uninstall() {
     fi
 
     echo ""
+    local failed_modules=()
     for t in "${targets[@]}"; do
         log_info "[${t}] 卸载中..."
         # Re-source module to ensure correct module_uninstall is in scope
@@ -553,6 +579,7 @@ cmd_uninstall() {
             source "${LIB_DIR}/${t}.sh"
             if ! declare -f module_uninstall > /dev/null 2>&1; then
                 log_error "[${t}] 模块文件加载失败，跳过卸载"
+                failed_modules+=("$t")
                 continue
             fi
             if module_uninstall; then
@@ -560,12 +587,18 @@ cmd_uninstall() {
                 log_success "[${t}] 已卸载"
             else
                 log_warn "[${t}] 卸载时出现警告，继续..."
+                failed_modules+=("$t")
             fi
         else
             log_warn "[${t}] 模块文件未找到，跳过卸载"
+            failed_modules+=("$t")
         fi
         echo ""
     done
+
+    if [[ ${#failed_modules[@]} -gt 0 ]]; then
+        log_warn "以下模块卸载失败（文件可能残留）: ${failed_modules[*]}"
+    fi
 
     release_lock
     _finalize_uninstall
@@ -712,9 +745,9 @@ main() {
     if ! $IS_PIPED || [[ "$cmd" != "install" ]]; then
         local _need_modules=false
         case "$cmd" in
-            install|uninstall|help) _need_modules=true ;;
-            config|version|update) _need_modules=false ;;
-            *) _need_modules=true ;;  # Unknown: might be a module name
+            install | uninstall | help) _need_modules=true ;;
+            config | version | update) _need_modules=false ;;
+            *) _need_modules=true ;; # Unknown: might be a module name
         esac
         if $_need_modules && [[ -n "$LIB_DIR" ]]; then
             _discover_modules "$LIB_DIR"
@@ -723,15 +756,15 @@ main() {
 
     case "$cmd" in
         install)
-            shift 2>/dev/null || true
+            shift || true
             cmd_install "$@"
             ;;
         uninstall)
-            shift 2> /dev/null || true
+            shift || true
             cmd_uninstall "$@"
             ;;
         config)
-            shift 2> /dev/null || true
+            shift || true
             cmd_config "$@"
             ;;
         version)
@@ -758,7 +791,7 @@ main() {
                         acquire_lock || exit $?
                         if module_install; then
                             manifest_set_section "$cmd" "installed=true"
-                                                    log_success "${cmd} 完成"
+                            log_success "${cmd} 完成"
                         else
                             log_error "[${cmd}] 失败"
                         fi

@@ -30,16 +30,18 @@ _detect_shell_rc() {
     local sh_type
     sh_type="$(detect_shell)"
 
+    # zsh always uses .zshrc regardless of OS
+    if [[ "$sh_type" == "zsh" ]]; then
+        echo "$HOME/.zshrc"
+        return
+    fi
+
     case "$os_type" in
         macos)
             case "$sh_type" in
-                zsh) echo "$HOME/.zshrc" ;;
                 bash) echo "$HOME/.bash_profile" ;;
                 *) echo "$HOME/.bashrc" ;;
             esac
-            ;;
-        linux)
-            echo "$HOME/.bashrc"
             ;;
         *)
             echo "$HOME/.bashrc"

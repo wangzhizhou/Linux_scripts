@@ -331,7 +331,7 @@ module_uninstall() {
 
     # Restore backup
     local bak_file
-    bak_file="$(manifest_read 'vimrc_backup')"
+    bak_file="$(manifest_read_section_key 'vim' 'vimrc_backup')"
     if [[ -n "$bak_file" ]] && [[ -f "$bak_file" ]]; then
         local answer="y"
         if [[ "${YES_MODE:-false}" != "true" ]]; then
