@@ -604,6 +604,7 @@ _finalize_uninstall() {
 # ─── CLI: Help ────────────────────────────────────────────────
 cmd_help() {
     local module_count=0
+    # shellcheck disable=SC2153  # MODULE_NAMES is defined in sourced common.sh
     if [[ ${#MODULE_NAMES[@]} -gt 0 ]]; then
         module_count="$(list_modules_sorted | awk 'END{print NR}')"
     fi
