@@ -262,6 +262,7 @@ module_install() {
     manifest_set_section "shell" \
         "installed=true" \
         "shell_type=${sh_type}" \
+        "display_name=shell (${sh_type})" \
         "source_file=${rc_file}" \
         "config_created=${SH_CONFIG_FILE}"
 

@@ -327,6 +327,69 @@ manifest_clear() {
     rm -f "$MANIFEST_FILE"
 }
 
+# ─── Date Formatting ─────────────────────────────────────────────
+# Convert ISO 8601 date string to human-readable local time.
+# Input:  2026-06-12T10:15:30+0800  (from manifest install_date)
+# Output: 2026年06月12日 10:15:30 CST (varies by local timezone)
+format_date_human() {
+    local raw_date="$1"
+    local fallback="${2:-${raw_date:-unknown}}"
+
+    if [[ -z "$raw_date" ]] || [[ "$raw_date" == "unknown" ]]; then
+        echo "$fallback"
+        return
+    fi
+
+    local formatted
+    case "$(detect_os)" in
+        macos)
+            # BSD date: -j for dry-run parse, -f for input format
+            formatted="$(date -j -f "%Y-%m-%dT%H:%M:%S%z" "$raw_date" \
+                "+%Y年%m月%d日 %H:%M:%S %Z" 2>/dev/null || true)"
+            ;;
+        *)
+            # GNU date: -d for date string parsing
+            formatted="$(date -d "$raw_date" \
+                "+%Y年%m月%d日 %H:%M:%S %Z" 2>/dev/null || true)"
+            ;;
+    esac
+
+    # Fallback to raw date if parsing fails (e.g. corrupt manifest)
+    echo "${formatted:-$raw_date}"
+}
+
+# ─── Manifest Section Key Reader ─────────────────────────────────
+# Read a key from within a specific manifest section.
+# Usage: manifest_read_section_key <section> <key> [default]
+manifest_read_section_key() {
+    local section="$1"
+    local key="$2"
+    local default="${3:-}"
+
+    if ! manifest_exists; then
+        echo "$default"
+        return
+    fi
+
+    local in_section=false
+    while IFS= read -r line; do
+        if [[ "$line" == "[${section}]" ]]; then
+            in_section=true
+            continue
+        fi
+        if $in_section; then
+            if [[ "$line" == "["*"]" ]]; then
+                break  # reached next section, stop
+            fi
+            if [[ "$line" =~ ^${key}= ]]; then
+                echo "${line#*=}"
+                return
+            fi
+        fi
+    done < "$MANIFEST_FILE"
+    echo "$default"
+}
+
 # ─── Config File Management ───────────────────────────────────
 CONFIG_FILE="${HOME}/.easywork.conf"
 CONFIG_EXAMPLE="${EASYWORK_ROOT:-.}/easywork.conf.example"
@@ -391,9 +454,38 @@ _save_config_var() {
 
 config_show() {
     echo "配置文件路径: $(config_path)"
+    echo ""
     if config_exists; then
-        echo "---"
-        cat "$(config_path)"
+        local cfg_file
+        cfg_file="$(config_path)"
+
+        # --- File Metadata ---
+        local file_size line_count mod_time
+        file_size="$(wc -c < "$cfg_file" | tr -d ' ')"
+        line_count="$(wc -l < "$cfg_file" | tr -d ' ')"
+        if [[ "$(detect_os)" == "macos" ]]; then
+            mod_time="$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$cfg_file" 2>/dev/null || echo 'unknown')"
+        else
+            mod_time="$(stat -c "%y" "$cfg_file" 2>/dev/null | cut -d. -f1 || echo 'unknown')"
+        fi
+
+        echo "  文件大小: ${file_size} 字节"
+        echo "  行数:     ${line_count} 行"
+        echo "  修改时间: ${mod_time}"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+
+        # --- Config Content ---
+        local content
+        content="$(cat "$cfg_file")"
+        cat "$cfg_file"
+
+        # Show hint when config has no actual key=value pairs (template-only file)
+        if ! grep -qE '^[a-zA-Z_][a-zA-Z0-9_]*=' "$cfg_file" 2>/dev/null; then
+            echo ""
+            echo "（配置文件尚无配置项，可通过 'easywork config edit' 编辑添加）"
+        fi
     else
         echo "（配置文件不存在，运行 easywork install 自动创建）"
     fi

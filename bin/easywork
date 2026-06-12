@@ -118,16 +118,28 @@ cmd_version() {
     echo "EasyWork ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
     if manifest_exists; then
         echo "配置文件: $(config_path)"
-        echo "安装日期: $(manifest_read 'install_date' 'unknown')"
+
+        # Human-readable install date with timezone conversion
+        local raw_date
+        raw_date="$(manifest_read 'install_date' 'unknown')"
+        if [[ "$raw_date" != "unknown" ]]; then
+            echo "安装日期: $(format_date_human "$raw_date")"
+        else
+            echo "安装日期: unknown"
+        fi
+
         local installed
         installed="$(manifest_list_installed | tr '\n' ' ')"
         if [[ -n "${installed// /}" ]]; then
-            local shell_type
-            shell_type="$(manifest_read 'shell_type' '')"
-            if [[ -n "$shell_type" ]]; then
-                installed="${installed//shell/shell (${shell_type})}"
-            fi
-            echo "已安装组件: ${installed}"
+            # Generic display: each module may declare a display_name in its manifest section
+            local formatted_list=()
+            local name display
+            for name in $installed; do
+                [[ -z "$name" ]] && continue
+                display="$(manifest_read_section_key "$name" "display_name" "")"
+                formatted_list+=("${display:-$name}")
+            done
+            echo "已安装组件: ${formatted_list[*]}"
         else
             echo "已安装组件: (无)"
         fi
@@ -591,24 +603,48 @@ _finalize_uninstall() {
 
 # ─── CLI: Help ────────────────────────────────────────────────
 cmd_help() {
+    local module_count=0
+    if [[ ${#MODULE_NAMES[@]} -gt 0 ]]; then
+        module_count="$(list_modules_sorted | awk 'END{print NR}')"
+    fi
+
     cat << EOF
 EasyWork — 开发环境一键配置 ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}
 
 用法:
-  easywork install                一键安装全部组件
-  easywork uninstall [组件]       卸载（无参数卸载全部）
-  easywork config                 查看配置
-  easywork config edit            编辑配置文件
-  easywork version                查看版本
-  easywork update                 检查并升级到最新版本
+  easywork <命令> [参数] [选项]
 
-可用组件:
-$(list_modules)
+内置命令:
+  install [组件]       一键安装全部组件（或指定单个组件）
+  uninstall [组件]     卸载组件（不指定则卸载全部）
+  config               查看配置文件内容及元信息
+  config edit          编辑配置文件
+  version              查看版本和已安装组件信息
+  update               检查并升级到最新版本
 
+EOF
+
+    if [[ "$module_count" -gt 0 ]]; then
+        echo "组件快捷命令 (${module_count} 个可用组件):"
+    else
+        echo "组件快捷命令:"
+    fi
+    echo ""
+    list_modules
+    echo ""
+
+    if [[ "$module_count" -gt 0 ]]; then
+        echo "  提示: 输入 easywork <组件名> 可单独安装该组件"
+        echo ""
+    fi
+
+    cat << EOF
 全局选项:
   --dry-run             预览变更，不实际执行
   --yes, -y             跳过交互确认
   --verbose, -v         详细输出
+  --keep-config         卸载时保留配置文件
+  --remove-config       卸载时移除配置文件
 
 EOF
 }

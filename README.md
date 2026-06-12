@@ -22,16 +22,28 @@ easywork install              # 一键配置全部
 ## 使用
 
 ```bash
-easywork install              # 一键配置全部
-easywork shell                # 只配置 Shell（bash/zsh 自动适配）
-easywork git                  # 只配置 Git
-easywork vim                  # 只配置 Vim
-easywork config               # 查看配置
+# 一键安装
+easywork install              # 一键配置全部组件
+easywork install <组件名>     # 只配置指定组件
+
+# 组件快捷命令（可直接输入组件名单独安装）
+easywork shell                # 配置 Shell 环境（bash/zsh 适配）
+easywork git                  # 配置 Git 别名和身份
+easywork vim                  # 配置 Vim IDE
+
+# 配置管理
+easywork config               # 查看配置文件元信息及完整内容
 easywork config edit          # 编辑配置文件
-easywork version              # 查看版本
-easywork update               # 检查并升级
-easywork uninstall            # 卸载
+
+# 版本与升级
+easywork version              # 查看版本、安装日期和已安装组件
+easywork update               # 检查并升级到最新版本
+
+# 卸载
+easywork uninstall [组件]     # 卸载（不指定则卸载全部）
 ```
+
+> **提示**：`easywork <组件名>` 可单独安装该组件，组件列表由模块数量动态生成。
 
 ## 系统要求
 
