@@ -246,9 +246,11 @@ _sv() { set +e; _semver_compare "$1" "$2"; local rc=$?; set -e; return $rc; }
 
 @test "unit: _escape_sed_replacement escapes sed chars" {
     local r; r="$(_escape_sed_replacement "a/b")"
-    [[ -n "$r" ]] && ! [[ "$r" == */* ]]
+    # Escaped output contains backslash+slash sequence \/
+    [[ "$r" == *'\'/* ]]
     r="$(_escape_sed_replacement "foo&bar")"
-    [[ -n "$r" ]] && ! [[ "$r" == *'&'* ]]
+    # Escaped output contains backslash+ampersand sequence \&
+    [[ "$r" == *'\&'* ]]
 }
 
 # ── Semver with v-prefix ─────────────────────────────────────
