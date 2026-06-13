@@ -95,7 +95,9 @@ for _ew_lib in completions.sh install.sh; do
         if [[ ! -f "$_ew_cache_path" ]]; then
             safe_download "${EASYWORK_RAW_URL}/lib/${_ew_lib}" "$_ew_cache_path" 2> /dev/null || true
         fi
-        [[ -f "$_ew_cache_path" ]] && source "$_ew_cache_path" 2> /dev/null || true
+        if [[ -f "$_ew_cache_path" ]]; then
+            source "$_ew_cache_path" 2> /dev/null || true
+        fi
     fi
 done
 unset _ew_lib _ew_lib_path _ew_cache_path
