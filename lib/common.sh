@@ -194,8 +194,11 @@ _sha256_check() {
 
     [[ -n "$actual" ]] || return 1
 
-    # Case-insensitive comparison
-    if [[ "${actual,,}" == "${expected,,}" ]]; then
+    # Case-insensitive comparison (bash 3.2 compatible — no ${var,,})
+    local actual_lower expected_lower
+    actual_lower="$(echo "$actual" | tr '[:upper:]' '[:lower:]')"
+    expected_lower="$(echo "$expected" | tr '[:upper:]' '[:lower:]')"
+    if [[ "$actual_lower" == "$expected_lower" ]]; then
         return 0
     fi
     log_verbose "SHA256 不匹配: 实际=${actual}, 预期=${expected}"
