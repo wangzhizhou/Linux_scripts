@@ -35,8 +35,10 @@ easywork <命令> [参数] [选项]
 | `uninstall` | 卸载全部组件 |
 | `uninstall <模块>` | 卸载指定组件 |
 | `config` / `config edit` | 查看 / 编辑配置文件 |
+| `completion` | 安装、移除或查看 shell 补全状态 |
 | `version` | 查看版本和已安装组件 |
 | `update` | 升级到最新版本 |
+| `help` | 显示帮助信息 |
 
 | 选项 | 说明 |
 |---|---|
@@ -51,7 +53,7 @@ easywork <命令> [参数] [选项]
 
 ### Shell
 
-配置 zsh / bash 环境，自动安装 Oh My Zsh（macOS zsh 环境）。
+配置 zsh / bash 环境，zsh 环境下自动安装 Oh My Zsh。
 
 - 颜色变量、彩色提示符（含 Git 分支信息）
 - 常用别名（`grep`、`mv`、`cp`、`rm` 加保护参数，`g` → `git`，`q` → `exit`）
