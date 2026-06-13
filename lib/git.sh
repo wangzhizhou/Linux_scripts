@@ -502,8 +502,9 @@ module_uninstall() {
             read -r -p "  恢复备份的 ~/.gitconfig？[Y/n] " answer
         fi
         if [[ ! "$answer" =~ ^[Nn] ]]; then
-            restore_backup "$config_backup" "$GIT_CONFIG_FILE"
-            log_success "已恢复备份的 ~/.gitconfig"
+            if restore_backup "$config_backup" "$GIT_CONFIG_FILE"; then
+                log_success "已恢复备份的 ~/.gitconfig"
+            fi
         fi
     else
         # No backup — just remove the managed section (comment-agnostic)

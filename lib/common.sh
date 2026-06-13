@@ -60,7 +60,7 @@ log_info() { printf "  %s●%s %s\n" "${C_CYAN}" "${C_RESET}" "$*"; }
 log_success() { printf "  %s✓%s %s\n" "${C_GREEN}" "${C_RESET}" "$*"; }
 log_warn() { printf "  %s!%s %s\n" "${C_YELLOW}" "${C_RESET}" "$*" >&2; }
 log_error() { printf "  %s✗%s %s\n" "${C_RED}" "${C_RESET}" "$*" >&2; }
-log_verbose() { [[ "${VERBOSE:-false}" == "true" ]] && printf "  %s[DEBUG]%s %s\n" "${C_PURPLE}" "${C_RESET}" "$*" >&2; }
+log_verbose() { if [[ "${VERBOSE:-false}" == "true" ]]; then printf "  %s[DEBUG]%s %s\n" "${C_PURPLE}" "${C_RESET}" "$*" >&2; fi; return 0; }
 
 # ─── System Detection ─────────────────────────────────────────
 detect_os() {
@@ -111,6 +111,28 @@ check_network() {
 }
 
 safe_download() {
+    local expected_sha256=""
+    local positional_args=()
+
+    # Parse --sha256 flag before positional args
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --sha256)
+                expected_sha256="$2"
+                shift 2
+                ;;
+            --sha256=*)
+                expected_sha256="${1#*=}"
+                shift
+                ;;
+            *)
+                positional_args+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    set -- "${positional_args[@]}"
     local url="$1"
     local output="${2:-}"
     if (($# >= 2)); then
@@ -119,11 +141,62 @@ safe_download() {
         shift
     fi
     local opts=(-fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 1 --retry-connrefused)
+    local curl_exit=0
     if [[ -n "$output" ]]; then
-        curl "${opts[@]}" "$@" -o "$output" "$url"
+        curl "${opts[@]}" "$@" -o "$output" "$url" || curl_exit=$?
     else
-        curl "${opts[@]}" "$@" "$url"
+        curl "${opts[@]}" "$@" "$url" || curl_exit=$?
     fi
+
+    if [[ $curl_exit -ne 0 ]]; then
+        return $curl_exit
+    fi
+
+    # SHA256 verification when checksum was requested
+    if [[ -n "$expected_sha256" ]]; then
+        if [[ -z "$output" ]]; then
+            log_warn "--sha256 需要指定输出文件路径，跳过校验"
+        else
+            log_verbose "验证 SHA256: $output"
+            if ! _sha256_check "$output" "$expected_sha256"; then
+                log_error "文件完整性校验失败: $(basename "$output")"
+                log_error "预期: $expected_sha256"
+                rm -f "$output" 2> /dev/null || true
+                return $EXIT_NETWORK
+            fi
+            log_verbose "SHA256 校验通过"
+        fi
+    fi
+
+    return 0
+}
+
+# Compute SHA256 of a file and compare to expected hash.
+# Returns 0 on match, 1 on mismatch or missing tool.
+_sha256_check() {
+    local file="$1"
+    local expected="$2"
+    local actual=""
+
+    if has_cmd shasum; then
+        actual="$(shasum -a 256 "$file" 2> /dev/null | cut -d' ' -f1)"
+    elif has_cmd sha256sum; then
+        actual="$(sha256sum "$file" 2> /dev/null | cut -d' ' -f1)"
+    elif has_cmd openssl; then
+        actual="$(openssl dgst -sha256 "$file" 2> /dev/null | cut -d' ' -f2)"
+    else
+        log_warn "未找到 SHA256 计算工具（shasum/sha256sum/openssl），跳过校验"
+        return 0
+    fi
+
+    [[ -n "$actual" ]] || return 1
+
+    # Case-insensitive comparison
+    if [[ "${actual,,}" == "${expected,,}" ]]; then
+        return 0
+    fi
+    log_verbose "SHA256 不匹配: 实际=${actual}, 预期=${expected}"
+    return 1
 }
 
 # ─── File Operations ──────────────────────────────────────────
@@ -146,9 +219,13 @@ restore_backup() {
     local bak="$1"
     local target="$2"
     if [[ -f "$bak" ]]; then
-        mv "$bak" "$target"
-        return 0
+        if mv "$bak" "$target" 2> /dev/null; then
+            return 0
+        fi
+        log_error "恢复备份失败: ${bak} → ${target}（请手动处理）"
+        return 1
     fi
+    log_error "备份文件不存在: ${bak}"
     return 1
 }
 

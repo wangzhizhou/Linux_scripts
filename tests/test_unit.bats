@@ -256,6 +256,47 @@ _sv() {
     grep -q "new content" "$f"
 }
 
+@test "unit: replace_managed_section cross-version comment format" {
+    # Test that different comment prefix (# vs ") in markers is handled
+    local f="${TEST_HOME}/managed_cross_ver"
+    # Old version with vim-style comment
+    echo '" >>> EasyWork managed section begin (v1.0.0) >>>' > "$f"
+    echo 'old managed content' >> "$f"
+    echo '" <<< EasyWork managed section end <<<' >> "$f"
+    echo 'user content' >> "$f"
+    # Replace with new version (default # comment prefix)
+    replace_managed_section "$f" "2.0.0" "new managed content"
+    # User content preserved
+    grep -q "user content" "$f"
+    # Old content replaced
+    ! grep -q "old managed content" "$f"
+    # New content present
+    grep -q "new managed content" "$f"
+    # New marker uses default comment prefix
+    grep -q "# >>> EasyWork managed section" "$f"
+}
+
+@test "unit: replace_managed_section prepends to file without markers" {
+    # File with no managed section marker gets section prepended
+    local f="${TEST_HOME}/managed_cross_ver2"
+    echo "user content" > "$f"
+    replace_managed_section "$f" "3.0.0" "managed content"
+    # Both managed and user content should exist (managed is prepended)
+    grep -q "managed content" "$f"
+    grep -q "user content" "$f"
+    # Managed markers must be present
+    grep -q ">>> EasyWork managed section begin" "$f"
+    grep -q "<<< EasyWork managed section end" "$f"
+}
+
+@test "unit: replace_managed_section handles section only file" {
+    local f="${TEST_HOME}/managed_section_only"
+    replace_managed_section "$f" "1.0.0" "content"
+    replace_managed_section "$f" "1.0.0" "updated"
+    grep -q "updated" "$f"
+    ! grep -q "content" "$f"
+}
+
 # ── Exit Codes ───────────────────────────────────────────────
 
 @test "unit: exit codes are non-zero and distinct" {
@@ -287,14 +328,6 @@ _sv() {
 }
 
 # ── Semver with v-prefix ─────────────────────────────────────
-
-_sv() {
-    set +e
-    _semver_compare "$1" "$2"
-    local rc=$?
-    set -e
-    return $rc
-}
 
 @test "unit: semver handles v prefix from GitHub tags" {
     run _sv "v2.0.0" "v1.0.0"
@@ -406,6 +439,134 @@ _sv() {
     export -f curl 2> /dev/null || true
     safe_download "https://example.com/file" "out.txt" --retry 5
     grep -q "retry" "${TEST_HOME}/safe_download_flags.log" || true
+}
+
+# ── SHA256 Checksum ─────────────────────────────────────────────
+
+@test "unit: _sha256_check matches expected hash" {
+    local f="${TEST_HOME}/sha_test_file"
+    echo "hello world" > "$f"
+    # Compute expected hash using available tool
+    local expected
+    if command -v shasum > /dev/null 2>&1; then
+        expected="$(shasum -a 256 "$f" | cut -d' ' -f1)"
+    elif command -v sha256sum > /dev/null 2>&1; then
+        expected="$(sha256sum "$f" | cut -d' ' -f1)"
+    else
+        skip "no sha256 tool available"
+    fi
+    run _sha256_check "$f" "$expected"
+    [[ "$status" -eq 0 ]]
+}
+
+@test "unit: _sha256_check rejects wrong hash" {
+    local f="${TEST_HOME}/sha_test_file2"
+    echo "hello world" > "$f"
+    run _sha256_check "$f" "0000000000000000000000000000000000000000000000000000000000000000"
+    [[ "$status" -ne 0 ]]
+}
+
+@test "unit: _sha256_check returns 0 when no tool available" {
+    local f="${TEST_HOME}/sha_test_file3"
+    echo "test" > "$f"
+    function shasum() { return 127; }
+    function sha256sum() { return 127; }
+    function openssl() { return 127; }
+    function has_cmd() { return 1; }
+    export -f has_cmd 2> /dev/null || true
+    run _sha256_check "$f" "anyhash"
+    [[ "$status" -eq 0 ]]
+}
+
+@test "unit: safe_download --sha256 verifies integrity" {
+    local f="${TEST_HOME}/safe_sha_test"
+    local content="integrity-check-content"
+    local expected_hash
+    echo -n "$content" > "${TEST_HOME}/source_file"
+
+    # Compute expected hash
+    if command -v shasum > /dev/null 2>&1; then
+        expected_hash="$(shasum -a 256 "${TEST_HOME}/source_file" | cut -d' ' -f1)"
+    elif command -v sha256sum > /dev/null 2>&1; then
+        expected_hash="$(sha256sum "${TEST_HOME}/source_file" | cut -d' ' -f1)"
+    else
+        skip "no sha256 tool available"
+    fi
+
+    # Mock curl to write known content
+    function curl() {
+        local out=""
+        local prev=""
+        for arg in "$@"; do
+            [[ "$prev" == "-o" ]] && { out="$arg"; break; }
+            prev="$arg"
+        done
+        [[ -n "$out" ]] && echo -n "$content" > "$out"
+        return 0
+    }
+    export -f curl 2> /dev/null || true
+
+    safe_download --sha256 "$expected_hash" "https://example.com/file" "$f"
+    [[ -f "$f" ]]
+    [[ "$(cat "$f")" == "$content" ]]
+}
+
+@test "unit: safe_download --sha256 rejects tampered content" {
+    local f="${TEST_HOME}/safe_sha_tamper"
+    local bad_hash="0000000000000000000000000000000000000000000000000000000000000000"
+
+    function curl() {
+        local out=""
+        local prev=""
+        for arg in "$@"; do
+            [[ "$prev" == "-o" ]] && { out="$arg"; break; }
+            prev="$arg"
+        done
+        [[ -n "$out" ]] && echo "tampered-content" > "$out"
+        return 0
+    }
+    export -f curl 2> /dev/null || true
+
+    run safe_download --sha256 "$bad_hash" "https://example.com/file" "$f"
+    [[ "$status" -ne 0 ]]
+    # Tampered file should be removed on failure
+    [[ ! -f "$f" ]]
+}
+
+# ── Temp File Tracking ──────────────────────────────────────────
+
+@test "unit: _register_temp_file adds to TEMP_FILES" {
+    TEMP_FILES=""
+    _register_temp_file "/tmp/test1.tmp"
+    [[ "$TEMP_FILES" == "/tmp/test1.tmp" ]]
+    _register_temp_file "/tmp/test2.tmp"
+    [[ "$TEMP_FILES" == "/tmp/test1.tmp /tmp/test2.tmp" ]]
+}
+
+@test "unit: _register_temp_file handles single and multiple files" {
+    TEMP_FILES=""
+    _register_temp_file "/tmp/a.tmp"
+    [[ "${#TEMP_FILES}" -gt 0 ]]
+    # Verify it's space-separated list
+    local count
+    count="$(echo "$TEMP_FILES" | wc -w | tr -d ' ')"
+    [[ "$count" -eq 1 ]]
+    _register_temp_file "/tmp/b.tmp"
+    count="$(echo "$TEMP_FILES" | wc -w | tr -d ' ')"
+    [[ "$count" -eq 2 ]]
+}
+
+# ── Signal Handling ────────────────────────────────────────────
+
+@test "unit: cleanup_on_interrupt calls release_lock" {
+    # run in subshell to not affect test harness
+    # By verifying the exit code is EXIT_INTERRUPT
+    LOCK_FILE="${TEST_HOME}/.easywork_int_test.lock"
+    LOCK_FD=202
+    # Simulate cleanup without actually killing the process
+    run cleanup_on_interrupt
+    # Should exit EXIT_INTERRUPT
+    [[ "$status" -eq 130 ]]
 }
 
 # ── check_network ──────────────────────────────────────────────

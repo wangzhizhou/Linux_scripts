@@ -126,15 +126,29 @@ jobs:
           echo "" >> /tmp/release-body.md
           cat /tmp/release-body.md
 
+      - name: Generate SHA256 Checksums
+        run: |
+          cd "${{ github.workspace }}"
+          for f in bin/easywork lib/*.sh easywork.conf.example VERSION; do
+            if [ -f "$f" ]; then
+              echo "Generating checksum for $f"
+              sha256sum "$f" > "${f}.sha256"
+            fi
+          done
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           body_path: /tmp/release-body.md
           files: |
             bin/easywork
+            bin/easywork.sha256
             lib/*.sh
+            lib/*.sh.sha256
             easywork.conf.example
+            easywork.conf.example.sha256
             VERSION
+            VERSION.sha256
           draft: false
           prerelease: false
         env:

@@ -226,8 +226,9 @@ module_install() {
     log_info "系统: $os_type, Shell: $sh_type"
     log_info "Shell 配置文件: $rc_file"
 
-    # Install Oh My Zsh on macOS zsh
-    if [[ "$os_type" == "macos" ]] && [[ "$sh_type" == "zsh" ]]; then
+    # Install Oh My Zsh on zsh (both macOS and Linux)
+    # Note: CHSH=no prevents automatic default shell switch, safe for all platforms
+    if [[ "$sh_type" == "zsh" ]]; then
         _install_ohmyzsh
     fi
 
@@ -288,7 +289,7 @@ module_uninstall() {
     if [[ -f "$rc_file" ]]; then
         local tmpfile
         tmpfile="${rc_file}.tmp.$$"
-        grep -vF "source $SH_CONFIG_FILE" "$rc_file" > "$tmpfile" 2> /dev/null || true
+        grep -vF "source $SH_CONFIG_FILE  # EasyWork" "$rc_file" > "$tmpfile" 2> /dev/null || true
         mv "$tmpfile" "$rc_file"
         log_success "已从 $rc_file 移除 source 行"
     fi

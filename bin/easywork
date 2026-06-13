@@ -83,6 +83,23 @@ else
     EASYWORK_CHANNEL=""
 fi
 
+# ─── Source Additional Library Files ────────────────────────────
+# After common.sh is loaded, source completions.sh and install.sh from
+# the same LIB_DIR (local or piped cache).
+for _ew_lib in completions.sh install.sh; do
+    _ew_lib_path="${LIB_DIR}/${_ew_lib}"
+    if [[ -f "$_ew_lib_path" ]]; then
+        source "$_ew_lib_path"
+    elif [[ -n "${_CACHE_DIR:-}" ]]; then
+        _ew_cache_path="${_CACHE_DIR}/${_ew_lib}"
+        if [[ ! -f "$_ew_cache_path" ]]; then
+            safe_download "${EASYWORK_RAW_URL}/lib/${_ew_lib}" "$_ew_cache_path" 2> /dev/null || true
+        fi
+        [[ -f "$_ew_cache_path" ]] && source "$_ew_cache_path" 2> /dev/null || true
+    fi
+done
+unset _ew_lib _ew_lib_path _ew_cache_path
+
 # ─── Module Auto-Discovery ────────────────────────────────────
 _discover_modules() {
     local lib_dir="$1"
@@ -111,8 +128,12 @@ _discover_modules() {
 
     for f in "$lib_dir"/*.sh; do
         [[ -f "$f" ]] || continue
-        # Skip common.sh itself
-        [[ "$(basename "$f")" == "common.sh" ]] && continue
+        # Skip library files that are not modules
+        local _skip_lib
+        _skip_lib="$(basename "$f")"
+        [[ "$_skip_lib" == "common.sh" ]] && continue
+        [[ "$_skip_lib" == "completions.sh" ]] && continue
+        [[ "$_skip_lib" == "install.sh" ]] && continue
 
         # Reset module variables before sourcing
         unset MODULE_NAME MODULE_DESCRIPTION MODULE_PRIORITY
@@ -120,6 +141,16 @@ _discover_modules() {
 
         if [[ -z "${MODULE_NAME:-}" ]]; then
             log_warn "跳过 $f: 未定义 MODULE_NAME"
+            continue
+        fi
+
+        # Validate module contract: must define install and uninstall functions
+        if ! declare -f module_install > /dev/null 2>&1; then
+            log_warn "跳过 ${MODULE_NAME}: 未定义 module_install 函数"
+            continue
+        fi
+        if ! declare -f module_uninstall > /dev/null 2>&1; then
+            log_warn "跳过 ${MODULE_NAME}: 未定义 module_uninstall 函数"
             continue
         fi
 
@@ -227,19 +258,70 @@ cmd_update() {
     # Self-update: download versioned release asset
     local easywork_path
     easywork_path="$(command -v easywork 2> /dev/null || echo '')"
-    if [[ -n "$easywork_path" ]] && [[ -w "$easywork_path" ]]; then
-        backup_file "$easywork_path"
-        log_info "下载 ${latest_version}..."
-        if safe_download "${EASYWORK_RELEASE_URL}/${latest_version}/bin/easywork" "$easywork_path"; then
-            chmod +x "$easywork_path"
-            log_success "已更新到 ${latest_version}"
-        else
-            log_error "下载失败，已保留当前版本"
-            return $EXIT_NETWORK
-        fi
-    else
+    if [[ -z "$easywork_path" ]] || [[ ! -w "$easywork_path" ]]; then
         log_warn "无法自更新（无写入权限），请手动执行一键安装命令"
         log_info "curl -sL ${EASYWORK_RAW_URL}/bin/easywork | bash -s -- install"
+        return $EXIT_PERMISSION
+    fi
+
+    # Download to temp path first, verify, then replace
+    local tmp_bin
+    tmp_bin="$(mktemp)" || {
+        log_error "无法创建临时文件"
+        return $EXIT_ERROR
+    }
+    _register_temp_file "$tmp_bin"
+
+    log_info "下载 ${latest_version}..."
+    if ! safe_download "${EASYWORK_RELEASE_URL}/${latest_version}/bin/easywork" "$tmp_bin"; then
+        log_error "下载失败，已保留当前版本"
+        return $EXIT_NETWORK
+    fi
+
+    # Verify: try to download checksum file — if available, verify integrity
+    local sha256_url="${EASYWORK_RELEASE_URL}/${latest_version}/bin/easywork.sha256"
+    local sha256_file
+    sha256_file="$(mktemp)" || {
+        log_error "无法创建临时文件"
+        rm -f "$tmp_bin"
+        return $EXIT_ERROR
+    }
+    _register_temp_file "$sha256_file"
+
+    if curl -fsSL --proto '=https' --tlsv1.2 --retry 2 -o "$sha256_file" "$sha256_url" 2> /dev/null; then
+        local expected_hash
+        expected_hash="$(head -1 "$sha256_file" | awk '{print $1}')"
+        if [[ -n "$expected_hash" ]]; then
+            log_verbose "验证 SHA256 校验和..."
+            if ! _sha256_check "$tmp_bin" "$expected_hash"; then
+                log_error "文件完整性校验失败，放弃更新"
+                log_error "请检查网络或手动下载安装"
+                rm -f "$tmp_bin" "$sha256_file"
+                return $EXIT_NETWORK
+            fi
+            log_success "SHA256 校验通过"
+        fi
+    else
+        log_verbose "无校验和文件，跳过完整性校验"
+    fi
+    rm -f "$sha256_file"
+
+    # Verify the binary is executable and responds
+    chmod +x "$tmp_bin"
+    if ! "$tmp_bin" --version > /dev/null 2>&1; then
+        log_error "下载的文件无法执行，放弃更新"
+        rm -f "$tmp_bin"
+        return $EXIT_ERROR
+    fi
+
+    # Backup current binary and replace
+    backup_file "$easywork_path" > /dev/null 2>&1 || true
+    if mv "$tmp_bin" "$easywork_path"; then
+        chmod +x "$easywork_path"
+        log_success "已更新到 ${latest_version}"
+    else
+        log_error "无法写入 ${easywork_path}，请检查权限"
+        rm -f "$tmp_bin"
         return $EXIT_PERMISSION
     fi
 
@@ -248,542 +330,6 @@ cmd_update() {
     exec "$easywork_path" install --yes
 }
 
-# ─── Shell Completion Setup ────────────────────────────────────
-_detect_rc_file() {
-    # Delegate to shell module if available, otherwise inline detection
-    if declare -f _detect_shell_rc > /dev/null 2>&1; then
-        _detect_shell_rc
-        return
-    fi
-    local os_type sh_type
-    os_type="$(detect_os)"
-    sh_type="$(detect_shell)"
-    # zsh always uses .zshrc regardless of OS
-    if [[ "$sh_type" == "zsh" ]]; then
-        echo "$HOME/.zshrc"
-        return
-    fi
-    case "$os_type" in
-        macos)
-            case "$sh_type" in
-                bash) echo "$HOME/.bash_profile" ;;
-                *) echo "$HOME/.bashrc" ;;
-            esac
-            ;;
-        *) echo "$HOME/.bashrc" ;;
-    esac
-}
-
-# ─── Multi-shell rc file detection for completion injection ─────
-# Returns all rc files that should receive completion source lines.
-# Format: "shell_type:absolute_path" (one per line)
-_detect_completion_rc_files() {
-    local os_type
-    os_type="$(detect_os)"
-    local files=()
-
-    # zsh always uses .zshrc
-    files+=("zsh:$HOME/.zshrc")
-
-    # bash: platform-specific primary rc
-    if [[ "$os_type" == "macos" ]]; then
-        files+=("bash:$HOME/.bash_profile")
-        # .bashrc is a secondary file on macOS — include if it exists
-        [[ -f "$HOME/.bashrc" ]] && files+=("bash:$HOME/.bashrc")
-    else
-        files+=("bash:$HOME/.bashrc")
-        [[ -f "$HOME/.bash_profile" ]] && files+=("bash:$HOME/.bash_profile")
-    fi
-
-    printf '%s\n' "${files[@]}"
-}
-
-_setup_completions() {
-    if [[ "${DRY_RUN:-false}" == "true" ]]; then
-        log_info "[DRY-RUN] 将配置 shell 补全"
-        return 0
-    fi
-
-    local comp_dir="$HOME/.easywork/completions"
-    mkdir -p "$comp_dir"
-
-    # Build dynamic command list: built-in + registered modules
-    local mod_list
-    mod_list="$(list_modules_sorted 2> /dev/null | tr '\n' ' ' || true)"
-
-    # ── Bash completion — context-aware: flags, subcommands, module names ──
-    cat > "$comp_dir/easywork.bash" << BASH_COMP
-# EasyWork bash completion — generated by easywork ${EASYWORK_VERSION}
-# DO NOT EDIT — regenerated on 'easywork install'
-
-_easywork() {
-    COMPREPLY=()
-    local cur
-    cur="\${COMP_WORDS[COMP_CWORD]}"
-
-    local global_opts="--yes -y --dry-run --verbose -v"
-    local uninstall_opts="--keep-config --remove-config"
-    local commands="install uninstall config version update help completion"
-    local modules="${mod_list}"
-
-    local cmd=""
-    local i
-    for ((i = 1; i < COMP_CWORD; i++)); do
-        [[ "\${COMP_WORDS[i]}" != -* ]] && { cmd="\${COMP_WORDS[i]}"; break; }
-    done
-
-    if [[ "\$cur" == -* ]]; then
-        local opts="\$global_opts"
-        [[ "\$cmd" == "uninstall" ]] && opts="\$opts \$uninstall_opts"
-        COMPREPLY=(\$(compgen -W "\$opts" -- "\$cur"))
-        return
-    fi
-
-    if [[ -z "\$cmd" ]]; then
-        COMPREPLY=(\$(compgen -W "\$commands \$modules" -- "\$cur"))
-        return
-    fi
-
-    case "\$cmd" in
-        install | uninstall) COMPREPLY=(\$(compgen -W "\$modules" -- "\$cur")) ;;
-        config)              COMPREPLY=(\$(compgen -W "edit show" -- "\$cur")) ;;
-    esac
-}
-complete -F _easywork easywork
-BASH_COMP
-
-    # ── Zsh completion — explicit compdef registration (sourced directly) ──
-    cat > "$comp_dir/_easywork" << ZSH_COMP
-#compdef easywork
-# EasyWork zsh completion — generated by easywork ${EASYWORK_VERSION}
-# DO NOT EDIT — regenerated on 'easywork install'
-
-_easywork() {
-    local -a cmds modules
-    cmds=(install uninstall config version update help completion)
-    modules=(${mod_list})
-
-    _arguments -C \\
-        '--yes[跳过交互确认]' \\
-        '-y[跳过交互确认]' \\
-        '--dry-run[预览变更不执行]' \\
-        '--verbose[详细输出]' \\
-        '-v[详细输出]' \\
-        '--keep-config[卸载时保留配置文件]' \\
-        '--remove-config[卸载时删除配置文件]' \\
-        "1:命令:(\$cmds \$modules)" \\
-        '*::参数:->args'
-
-    case "\$state" in
-        args)
-            case "\${line[1]}" in
-                install | uninstall) compadd \$modules ;;
-                config)              compadd edit show ;;
-            esac
-            ;;
-    esac
-}
-
-# Register explicitly — this file is sourced directly, not autoloaded via fpath
-# Guard: skip if compinit has not been loaded (minimal zsh setups)
-if typeset -f compdef > /dev/null 2>&1; then
-    compdef _easywork easywork
-fi
-ZSH_COMP
-
-    # ── Inject source lines into all detected shell rc files ──
-    local injected_any=false
-    local sh_type rc_file source_line
-    while IFS=: read -r sh_type rc_file; do
-        [[ -f "$rc_file" ]] || touch "$rc_file"
-
-        if [[ "$sh_type" == "zsh" ]]; then
-            source_line="source $comp_dir/_easywork  # EasyWork completion"
-        else
-            source_line="source $comp_dir/easywork.bash  # EasyWork completion"
-        fi
-
-        if ! grep -qF "# EasyWork completion" "$rc_file" 2> /dev/null; then
-            printf '\n%s\n' "$source_line" >> "$rc_file"
-            injected_any=true
-            log_info "Shell 补全已注入: ${rc_file}"
-        fi
-    done < <(_detect_completion_rc_files)
-
-    if $injected_any; then
-        log_success "Shell 补全已配置（重启 shell 或运行 source 后生效）"
-    fi
-}
-
-_remove_completions() {
-    if [[ "${DRY_RUN:-false}" == "true" ]]; then
-        log_info "[DRY-RUN] 将移除 shell 补全配置"
-        return 0
-    fi
-
-    local comp_dir="$HOME/.easywork/completions"
-    local sh_type rc_file tmpfile
-
-    # Remove completion source lines from all detected rc files
-    while IFS=: read -r sh_type rc_file; do
-        if [[ -f "$rc_file" ]]; then
-            tmpfile="${rc_file}.tmp.$$"
-            grep -vF "# EasyWork completion" "$rc_file" > "$tmpfile" 2> /dev/null || true
-            mv "$tmpfile" "$rc_file"
-            log_info "已从 ${rc_file} 移除补全配置"
-        fi
-    done < <(_detect_completion_rc_files)
-
-    rm -f "$comp_dir/easywork.bash" "$comp_dir/_easywork"
-    rmdir "$comp_dir" 2> /dev/null || true
-}
-
-# ─── CLI: Install ─────────────────────────────────────────────
-cmd_install() {
-    local target="${1:-}"
-
-    # Validate target module if specified
-    if [[ -n "$target" ]]; then
-        _discover_modules "$LIB_DIR"
-        if ! module_registered "$target"; then
-            log_error "未知组件: $target"
-            echo ""
-            log_info "可用组件:"
-            list_modules
-            return $EXIT_ERROR
-        fi
-    fi
-
-    echo ""
-    local channel_label="${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
-    printf "  %sEasyWork %s%s%s%s — 开发环境配置%s\n" "${C_CYAN}" "${C_RESET}" "${EASYWORK_VERSION}" "${channel_label}" "${C_CYAN}" "${C_RESET}"
-    echo ""
-
-    # Preflight check
-    if ! preflight_check; then
-        return $?
-    fi
-
-    acquire_lock || return $?
-
-    # Detect old installation (from previous scripts/ era)
-    if [[ -f "$HOME/.sh_config_custom" ]]; then
-        if ! grep -qF "# >>> EasyWork managed section" "$HOME/.sh_config_custom" 2> /dev/null; then
-            log_warn "检测到旧版 EasyWork 配置（无版本管理）"
-            if [[ "${DRY_RUN:-false}" == "true" ]]; then
-                log_info "[DRY-RUN] 将备份旧配置并迁移"
-            elif [[ "${YES_MODE:-false}" != "true" ]]; then
-                local answer
-                read -r -p "  是否迁移到新版本？旧配置将备份后替换。[Y/n] " answer
-                if [[ "$answer" =~ ^[Nn] ]]; then
-                    log_info "跳过 Shell 配置迁移，其他组件正常安装"
-                else
-                    backup_file "$HOME/.sh_config_custom"
-                    log_info "已备份旧配置"
-                fi
-            else
-                backup_file "$HOME/.sh_config_custom"
-            fi
-        fi
-    fi
-
-    # Determine install mode
-    local install_mode="fresh"
-    local _run_modules=true
-    if manifest_exists; then
-        local installed_ver
-        installed_ver="$(manifest_get_version)" || installed_ver="0.0.0"
-        if [[ "$installed_ver" == "$EASYWORK_VERSION" ]]; then
-            install_mode="same_version"
-        elif _semver_is_newer "$EASYWORK_VERSION" "$installed_ver"; then
-            install_mode="upgrade"
-        else
-            log_warn "已安装版本 (${installed_ver}) 高于当前 (${EASYWORK_VERSION})，可能是降级"
-            install_mode="downgrade"
-        fi
-    fi
-
-    case "$install_mode" in
-        fresh)
-            log_info "全新安装 EasyWork ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
-            config_init
-            manifest_init "$EASYWORK_VERSION"
-            ;;
-        upgrade)
-            log_info "升级: ${installed_ver} → ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
-            ;;
-        same_version)
-            log_info "已安装 ${EASYWORK_VERSION}${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}，配置已是最新"
-            if $IS_PIPED; then
-                # Piped reinstall: skip config refresh, continue to binary overwrite
-                :
-            elif [[ -n "$target" ]]; then
-                # Explicit target: continue to install specific module
-                :
-            elif [[ "${YES_MODE:-false}" != "true" ]]; then
-                local answer
-                read -r -p "  重新应用配置？[y/N] " answer
-                if [[ ! "$answer" =~ ^[Yy] ]]; then
-                    _run_modules=false
-                fi
-            else
-                _run_modules=false
-            fi
-            if $_run_modules; then
-                log_info "刷新配置..."
-            fi
-            ;;
-    esac
-
-    # Run all modules (skip in piped mode — CLI binary only)
-    if ! $IS_PIPED && $_run_modules; then
-        local sorted
-        sorted="$(list_modules_sorted)" || {
-            log_error "无法获取模块列表"
-            release_lock
-            return $EXIT_ERROR
-        }
-
-        for name in $sorted; do
-            # Filter by target if specified
-            [[ -n "$target" && "$name" != "$target" ]] && continue
-            echo ""
-            log_info "配置 ${name}..."
-            # Re-source module file so the correct module_install is in scope
-            if [[ -f "${LIB_DIR}/${name}.sh" ]]; then
-                source "${LIB_DIR}/${name}.sh"
-            fi
-            if module_install; then
-                manifest_set_section "$name" \
-                    "installed=true"
-                log_success "${name} 完成"
-            else
-                log_error "[${name}] 失败"
-            fi
-        done
-    fi
-
-    # Update manifest version
-    if manifest_exists; then
-        local manifest_tmp
-        manifest_tmp="$(mktemp)" || {
-            log_error "无法创建临时文件 (mktemp 失败)"
-            release_lock
-            return $EXIT_ERROR
-        }
-        _register_temp_file "$manifest_tmp"
-        sed "s/^easywork_version=.*/easywork_version=${EASYWORK_VERSION}/" "$MANIFEST_FILE" > "$manifest_tmp"
-        mv "$manifest_tmp" "$MANIFEST_FILE"
-    fi
-
-    echo ""
-    if $IS_PIPED; then
-        local channel_label="${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
-        log_success "EasyWork ${EASYWORK_VERSION}${channel_label} CLI 准备就绪"
-    else
-        local channel_label="${EASYWORK_CHANNEL:+ (${EASYWORK_CHANNEL})}"
-        log_success "EasyWork ${EASYWORK_VERSION}${channel_label} 安装完成 🎉"
-        log_info "运行 easywork 查看可用命令"
-    fi
-
-    # Self-install: always overwrite binary when piped
-    if $IS_PIPED; then
-        echo ""
-        log_info "安装 easywork 到系统路径..."
-        local install_path
-        if [[ -w "/usr/local/bin" ]]; then
-            install_path="/usr/local/bin/easywork"
-        elif [[ -d "$HOME/.local/bin" ]] || mkdir -p "$HOME/.local/bin" 2> /dev/null; then
-            install_path="$HOME/.local/bin/easywork"
-        fi
-        if [[ -n "${install_path:-}" ]]; then
-            if safe_download "${EASYWORK_RAW_URL}/bin/easywork" "$install_path" 2> /dev/null; then
-                chmod +x "$install_path"
-                if ! echo ":$PATH:" | grep -q ":$(dirname "$install_path"):"; then
-                    log_warn "$(dirname "$install_path") 不在 \$PATH 中"
-                    log_info "请添加以下行到你的 shell 配置: export PATH=\"$(dirname "$install_path"):\$PATH\""
-                fi
-                log_success "已安装 easywork 到 ${install_path}"
-                log_info "运行 'easywork install' 完成组件配置"
-            fi
-        fi
-    fi
-
-    # Set up shell completions (skip in piped mode)
-    if ! $IS_PIPED; then
-        _setup_completions
-    fi
-
-    release_lock
-}
-
-# ─── CLI: Uninstall ───────────────────────────────────────────
-cmd_uninstall() {
-    local component="${1:-}"
-
-    if ! manifest_exists; then
-        log_error "未检测到安装记录（${MANIFEST_FILE} 不存在）"
-        log_info "如果之前使用过 EasyWork，请手动清理模块配置文件:"
-        log_info "  ~/.sh_config_custom, ~/.gitconfig, ~/.vimrc 等"
-        return $EXIT_ERROR
-    fi
-
-    acquire_lock || return $?
-
-    local targets=()
-    if [[ -n "$component" ]]; then
-        if ! manifest_section_exists "$component"; then
-            log_error "组件 '$component' 未安装"
-            release_lock
-            return $EXIT_ERROR
-        fi
-        targets=("$component")
-    else
-        # All installed components
-        local installed
-        installed="$(manifest_list_installed)"
-        if [[ -z "${installed// /}" ]]; then
-            log_info "没有已安装的组件"
-            # Still ask about config file
-            release_lock
-            _finalize_uninstall
-            return $EXIT_SUCCESS
-        fi
-        for name in $installed; do
-            targets+=("$name")
-        done
-    fi
-
-    # Confirm
-    if [[ "${YES_MODE:-false}" != "true" ]]; then
-        echo "将卸载以下组件:"
-        for t in "${targets[@]}"; do
-            echo "  - $t"
-        done
-        local answer
-        read -r -p "  确认卸载？[Y/n] " answer
-        if [[ "$answer" =~ ^[Nn] ]]; then
-            log_info "已取消卸载"
-            release_lock
-            return $EXIT_SUCCESS
-        fi
-    fi
-
-    echo ""
-    local failed_modules=()
-    for t in "${targets[@]}"; do
-        log_info "[${t}] 卸载中..."
-        # Re-source module to ensure correct module_uninstall is in scope
-        if [[ -f "${LIB_DIR}/${t}.sh" ]]; then
-            source "${LIB_DIR}/${t}.sh"
-            if ! declare -f module_uninstall > /dev/null 2>&1; then
-                log_error "[${t}] 模块文件加载失败，跳过卸载"
-                failed_modules+=("$t")
-                continue
-            fi
-            if module_uninstall; then
-                manifest_remove_section "$t"
-                log_success "[${t}] 已卸载"
-            else
-                log_warn "[${t}] 卸载时出现警告，继续..."
-                failed_modules+=("$t")
-            fi
-        else
-            log_warn "[${t}] 模块文件未找到，跳过卸载"
-            failed_modules+=("$t")
-        fi
-        echo ""
-    done
-
-    if [[ ${#failed_modules[@]} -gt 0 ]]; then
-        log_warn "以下模块卸载失败（文件可能残留）: ${failed_modules[*]}"
-    fi
-
-    release_lock
-    _finalize_uninstall
-}
-
-_finalize_uninstall() {
-    # Remove shell completions
-    _remove_completions
-
-    local remaining
-    remaining="$(manifest_list_installed | tr '\n' ' ')"
-    if [[ -n "${remaining// /}" ]]; then
-        log_info "以下组件仍安装: ${remaining}"
-        log_info "配置文件和 manifest 已保留"
-    else
-        local answer="y"
-        if [[ "${YES_MODE:-false}" != "true" ]]; then
-            read -r -p "  保留 $(config_path) 以便将来使用？[Y/n] " answer
-        elif [[ "${REMOVE_CONFIG:-false}" == "true" ]]; then
-            answer="n"
-        else
-            answer="y"
-        fi
-
-        if [[ "$answer" =~ ^[Nn] ]]; then
-            rm -f "$(config_path)"
-            manifest_clear
-            log_success "EasyWork 已完全移除 ✓"
-        else
-            log_info "配置文件已保留: $(config_path)"
-            log_info "下次运行 easywork install 可直接复用身份信息"
-        fi
-    fi
-}
-
-# ─── CLI: Completion ───────────────────────────────────────
-cmd_completion() {
-    local sub="${1:-setup}"
-    case "$sub" in
-        setup | install)
-            _discover_modules "$LIB_DIR"
-            _setup_completions
-            ;;
-        remove | uninstall | clean)
-            _remove_completions
-            log_success "Shell 补全已移除"
-            ;;
-        status | show)
-            local comp_dir="$HOME/.easywork/completions"
-            echo "补全文件目录: ${comp_dir}"
-            echo ""
-            if [[ -f "$comp_dir/easywork.bash" ]]; then
-                echo "  bash: ${comp_dir}/easywork.bash ✓"
-            else
-                echo "  bash: (未安装)"
-            fi
-            if [[ -f "$comp_dir/_easywork" ]]; then
-                echo "  zsh:  ${comp_dir}/_easywork ✓"
-            else
-                echo "  zsh:  (未安装)"
-            fi
-            echo ""
-            echo "已注入的 shell 配置文件:"
-            local found_any=false
-            local sh_type rc_file
-            while IFS=: read -r sh_type rc_file; do
-                if [[ -f "$rc_file" ]] && grep -qF "# EasyWork completion" "$rc_file" 2> /dev/null; then
-                    echo "  ${sh_type}: ${rc_file} ✓"
-                    found_any=true
-                fi
-            done < <(_detect_completion_rc_files)
-            if ! $found_any; then
-                echo "  (无 — 运行 easywork completion setup 安装补全)"
-            fi
-            ;;
-        *)
-            echo "用法: easywork completion <子命令>"
-            echo ""
-            echo "子命令:"
-            echo "  setup    生成并注入补全到 shell 配置文件"
-            echo "  remove   从 shell 配置文件移除补全"
-            echo "  status   查看补全安装状态"
-            exit $EXIT_ERROR
-            ;;
-    esac
-}
 
 # ─── CLI: Help ────────────────────────────────────────────────
 cmd_help() {
@@ -950,6 +496,10 @@ main() {
                             log_success "${cmd} 完成"
                         else
                             log_error "[${cmd}] 失败"
+                            manifest_set_section "$cmd" \
+                                "installed=failed" \
+                                "failed_at=$(date +%Y-%m-%dT%H:%M:%S%z)"
+                            log_warn "请修复问题后重试: easywork $cmd"
                         fi
                         release_lock
                     else

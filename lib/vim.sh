@@ -335,8 +335,9 @@ module_uninstall() {
             read -r -p "  恢复备份的 ~/.vimrc？[Y/n] " answer
         fi
         if [[ ! "$answer" =~ ^[Nn] ]]; then
-            restore_backup "$bak_file" "$VIMRC_FILE"
-            log_success "已恢复备份的 ~/.vimrc"
+            if restore_backup "$bak_file" "$VIMRC_FILE"; then
+                log_success "已恢复备份的 ~/.vimrc"
+            fi
         fi
     else
         # Remove managed section
