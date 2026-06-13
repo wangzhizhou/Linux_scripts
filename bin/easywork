@@ -83,6 +83,15 @@ else
     EASYWORK_CHANNEL=""
 fi
 
+# ─── Ensure RAW_URL has the library files we need (version tag may be stale) ───
+# Probe for a file that only exists post-refactoring: completions.sh
+if $IS_PIPED || [[ -n "${_CACHE_DIR:-}" ]]; then
+    _probe_url="${EASYWORK_RAW_URL}/lib/completions.sh"
+    if ! curl -fsSL --proto '=https' --tlsv1.2 --connect-timeout 5 -o /dev/null "$_probe_url" 2> /dev/null; then
+        EASYWORK_RAW_URL="https://raw.githubusercontent.com/EasyIndie/EasyWork/main"
+    fi
+fi
+
 # ─── Source Additional Library Files ────────────────────────────
 # After common.sh is loaded, source completions.sh and install.sh from
 # the same LIB_DIR (local or piped cache).
@@ -93,14 +102,28 @@ for _ew_lib in completions.sh install.sh; do
     elif [[ -n "${_CACHE_DIR:-}" ]]; then
         _ew_cache_path="${_CACHE_DIR}/${_ew_lib}"
         if [[ ! -f "$_ew_cache_path" ]]; then
-            safe_download "${EASYWORK_RAW_URL}/lib/${_ew_lib}" "$_ew_cache_path" 2> /dev/null || true
+            # Download lib file from GitHub — don't silently ignore failures
+            if ! safe_download "${EASYWORK_RAW_URL}/lib/${_ew_lib}" "$_ew_cache_path"; then
+                echo "[ERROR] 无法下载 ${_ew_lib}，请检查网络连接" >&2
+                echo "[INFO]  URL: ${EASYWORK_RAW_URL}/lib/${_ew_lib}" >&2
+                exit 2
+            fi
         fi
         if [[ -f "$_ew_cache_path" ]]; then
-            source "$_ew_cache_path" 2> /dev/null || true
+            source "$_ew_cache_path" || {
+                echo "[ERROR] ${_ew_lib} 加载失败" >&2
+                exit 1
+            }
         fi
     fi
 done
 unset _ew_lib _ew_lib_path _ew_cache_path
+
+# Post-load verification: critical functions must be available
+if ! declare -f cmd_install > /dev/null 2>&1; then
+    echo "[ERROR] 关键函数 cmd_install 未定义，install.sh 可能加载失败" >&2
+    exit 1
+fi
 
 # ─── Module Auto-Discovery ────────────────────────────────────
 _discover_modules() {
