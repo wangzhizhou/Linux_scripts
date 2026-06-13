@@ -498,7 +498,10 @@ _sv() {
         local out=""
         local prev=""
         for arg in "$@"; do
-            [[ "$prev" == "-o" ]] && { out="$arg"; break; }
+            [[ "$prev" == "-o" ]] && {
+                out="$arg"
+                break
+            }
             prev="$arg"
         done
         [[ -n "$out" ]] && echo -n "$content" > "$out"
@@ -519,7 +522,10 @@ _sv() {
         local out=""
         local prev=""
         for arg in "$@"; do
-            [[ "$prev" == "-o" ]] && { out="$arg"; break; }
+            [[ "$prev" == "-o" ]] && {
+                out="$arg"
+                break
+            }
             prev="$arg"
         done
         [[ -n "$out" ]] && echo "tampered-content" > "$out"

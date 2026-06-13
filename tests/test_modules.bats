@@ -12,7 +12,7 @@ teardown() { teardown_mocks; }
 
 # ── Shell Module ─────────────────────────────────────────────
 
-@test "module-shell: variables and module_check" {
+@test "module: shell: variables and module_check" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
     [[ "$MODULE_NAME" == "shell" ]]
     [[ -n "$MODULE_DESCRIPTION" ]]
@@ -22,7 +22,7 @@ teardown() { teardown_mocks; }
     [[ "$status" -ne 0 ]]
 }
 
-@test "module-shell: module_check true with markers" {
+@test "module: shell: module_check true with markers" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
     echo "# >>> EasyWork managed section begin (v1.0.0) >>>" > "$SH_CONFIG_FILE"
     echo "# <<< EasyWork managed section end <<<" >> "$SH_CONFIG_FILE"
@@ -30,14 +30,14 @@ teardown() { teardown_mocks; }
     [[ "$status" -eq 0 ]]
 }
 
-@test "module-shell: _detect_shell_rc returns a path" {
+@test "module: shell: _detect_shell_rc returns a path" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
     local rc
     rc="$(_detect_shell_rc)"
     [[ "$rc" == "$HOME/"* ]]
 }
 
-@test "module-shell: _generate_shell_config has expected content" {
+@test "module: shell: _generate_shell_config has expected content" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
     local content
     content="$(_generate_shell_config)"
@@ -47,7 +47,7 @@ teardown() { teardown_mocks; }
     [[ "$content" =~ "git-branch-name()" ]]
 }
 
-@test "module-shell: dry-run install does not create files" {
+@test "module: shell: dry-run install does not create files" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
     DRY_RUN=true module_install
     [[ ! -f "$SH_CONFIG_FILE" ]]
@@ -55,14 +55,14 @@ teardown() { teardown_mocks; }
 
 # ── Git Module ───────────────────────────────────────────────
 
-@test "module-git: variables and module_check" {
+@test "module: git: variables and module_check" {
     source "${EASYWORK_ROOT}/lib/git.sh"
     [[ "$MODULE_NAME" == "git" ]]
     run module_check
     [[ "$status" -ne 0 ]]
 }
 
-@test "module-git: email validation" {
+@test "module: git: email validation" {
     source "${EASYWORK_ROOT}/lib/git.sh"
     run _validate_email "user@example.com"
     [[ "$status" -eq 0 ]]
@@ -72,7 +72,7 @@ teardown() { teardown_mocks; }
     [[ "$status" -ne 0 ]]
 }
 
-@test "module-git: name validation" {
+@test "module: git: name validation" {
     source "${EASYWORK_ROOT}/lib/git.sh"
     run _validate_name "John Doe"
     [[ "$status" -eq 0 ]]
@@ -82,7 +82,41 @@ teardown() { teardown_mocks; }
     [[ "$status" -ne 0 ]]
 }
 
-@test "module-git: _generate_git_config contains aliases" {
+@test "module: git: _validate_name rejects shell metacharacters" {
+    source "${EASYWORK_ROOT}/lib/git.sh"
+    run _validate_name 'name$(evil)'
+    [[ "$status" -ne 0 ]]
+    run _validate_name 'name`touch /tmp/evil`'
+    [[ "$status" -ne 0 ]]
+    run _validate_name 'name|cat /etc/passwd'
+    [[ "$status" -ne 0 ]]
+}
+
+@test "module: git: _validate_name accepts unicode names" {
+    source "${EASYWORK_ROOT}/lib/git.sh"
+    run _validate_name "张三"
+    [[ "$status" -eq 0 ]]
+    run _validate_name "José Müller"
+    [[ "$status" -eq 0 ]]
+    run _validate_name "Alex 李"
+    [[ "$status" -eq 0 ]]
+}
+
+@test "module: git: _validate_name rejects empty input" {
+    source "${EASYWORK_ROOT}/lib/git.sh"
+    run _validate_name ""
+    [[ "$status" -ne 0 ]]
+}
+
+@test "module: git: _validate_name allows spaces (not a shell metachar)" {
+    source "${EASYWORK_ROOT}/lib/git.sh"
+    # Spaces are not shell metacharacters, so they pass the security check.
+    # Git itself will reject whitespace-only names on commit time.
+    run _validate_name "   "
+    [[ "$status" -eq 0 ]]
+}
+
+@test "module: git: _generate_git_config contains aliases" {
     source "${EASYWORK_ROOT}/lib/git.sh"
     local content
     content="$(_generate_git_config)"
@@ -91,7 +125,7 @@ teardown() { teardown_mocks; }
     [[ "$content" =~ "co = checkout" ]]
 }
 
-@test "module-git: dry-run install with config values" {
+@test "module: git: dry-run install with config values" {
     cat > "$CONFIG_FILE" << 'EOF'
 ## git
 GIT_PERSONAL_NAME="Test User"
@@ -107,14 +141,14 @@ EOF
 
 # ── Vim Module ───────────────────────────────────────────────
 
-@test "module-vim: variables and module_check" {
+@test "module: vim: variables and module_check" {
     source "${EASYWORK_ROOT}/lib/vim.sh"
     [[ "$MODULE_NAME" == "vim" ]]
     run module_check
     [[ "$status" -ne 0 ]]
 }
 
-@test "module-vim: _generate_vimrc has plugins and mappings" {
+@test "module: vim: _generate_vimrc has plugins and mappings" {
     source "${EASYWORK_ROOT}/lib/vim.sh"
     local content
     content="$(_generate_vimrc)"
@@ -124,7 +158,7 @@ EOF
     [[ "$content" =~ "<C-n>" ]]
 }
 
-@test "module-vim: dry-run install does not create config" {
+@test "module: vim: dry-run install does not create config" {
     source "${EASYWORK_ROOT}/lib/vim.sh"
     DRY_RUN=true module_install
     [[ ! -f "$VIMRC_FILE" ]]
@@ -132,7 +166,7 @@ EOF
 
 # ── Integration ──────────────────────────────────────────────
 
-@test "integration: fresh install manifest with modules" {
+@test "module: integration: fresh install manifest with modules" {
     manifest_init "1.0.0"
     manifest_set_section "shell" "installed=true"
     manifest_set_section "git" "installed=true"
@@ -145,7 +179,7 @@ EOF
     [[ "$installed" =~ "vim" ]]
 }
 
-@test "integration: uninstall removes sections" {
+@test "module: integration: uninstall removes sections" {
     manifest_init "1.0.0"
     manifest_set_section "shell" "installed=true"
     manifest_set_section "git" "installed=true"
@@ -156,7 +190,7 @@ EOF
     [[ "$status" -eq 0 ]]
 }
 
-@test "integration: partial uninstall leaves others" {
+@test "module: integration: partial uninstall leaves others" {
     manifest_init "1.0.0"
     manifest_set_section "shell" "installed=true"
     manifest_set_section "git" "installed=true"
@@ -169,21 +203,21 @@ EOF
     [[ ! "$installed" =~ "vim" ]]
 }
 
-@test "integration: reinstall refreshes section" {
+@test "module: integration: reinstall refreshes section" {
     manifest_init "1.0.0"
     manifest_set_section "shell" "installed=true" "shell_type=bash"
     manifest_set_section "shell" "installed=true" "shell_type=zsh"
     [[ "$(manifest_read 'shell_type')" == "zsh" ]]
 }
 
-@test "integration: upgrade updates manifest version" {
+@test "module: integration: upgrade updates manifest version" {
     manifest_init "1.0.0"
     sed "s/^easywork_version=.*/easywork_version=1.1.0/" "$MANIFEST_FILE" > "${MANIFEST_FILE}.tmp"
     mv "${MANIFEST_FILE}.tmp" "$MANIFEST_FILE"
     [[ "$(manifest_get_version)" == "1.1.0" ]]
 }
 
-@test "integration: modules sorted by priority" {
+@test "module: integration: modules sorted by priority" {
     register_module "aaa" "AAA" 90
     register_module "bbb" "BBB" 10
     register_module "ccc" "CCC" 50
@@ -200,7 +234,7 @@ EOF
     [[ "$c_pos" -lt "$a_pos" ]]
 }
 
-@test "integration: manifest write-read cycle" {
+@test "module: integration: manifest write-read cycle" {
     manifest_init "1.0.0"
     manifest_set_section "test" "key1=val1" "key2=val2" "installed=true"
     [[ "$(manifest_read 'key1')" == "val1" ]]
@@ -211,7 +245,7 @@ EOF
 
 # ── Module Uninstall ───────────────────────────────────────────
 
-@test "module-shell: dry-run uninstall does not delete files" {
+@test "module: shell: dry-run uninstall does not delete files" {
     source "${EASYWORK_ROOT}/lib/shell.sh"
     # Create a fake config file to verify it's not deleted in dry-run
     echo "# EasyWork managed section begin v1.0.0" > "$SH_CONFIG_FILE"
@@ -221,7 +255,7 @@ EOF
     [[ -f "$SH_CONFIG_FILE" ]]
 }
 
-@test "module-git: dry-run uninstall does not modify gitconfig" {
+@test "module: git: dry-run uninstall does not modify gitconfig" {
     source "${EASYWORK_ROOT}/lib/git.sh"
     echo "# EasyWork managed section begin v1.0.0" > "$GIT_CONFIG_FILE"
     echo "[user]" >> "$GIT_CONFIG_FILE"
@@ -230,7 +264,7 @@ EOF
     [[ -f "$GIT_CONFIG_FILE" ]]
 }
 
-@test "module-vim: dry-run uninstall does not delete vimrc" {
+@test "module: vim: dry-run uninstall does not delete vimrc" {
     source "${EASYWORK_ROOT}/lib/vim.sh"
     echo '" EasyWork managed section begin v1.0.0' > "$VIMRC_FILE"
     echo '" EasyWork managed section end' >> "$VIMRC_FILE"
@@ -238,7 +272,7 @@ EOF
     [[ -f "$VIMRC_FILE" ]]
 }
 
-@test "module-git: uninstall removes managed section" {
+@test "module: git: uninstall removes managed section" {
     source "${EASYWORK_ROOT}/lib/git.sh"
     # Create a file with user content + managed section
     cat > "$GIT_CONFIG_FILE" << 'EOF'
@@ -268,7 +302,7 @@ EOF
 
 # ── Shell Completions ──────────────────────────────────────────
 
-@test "completions: install generates bash and zsh completion files" {
+@test "module: completions: install generates bash and zsh completion files" {
     local comp_dir="${TEST_HOME}/.easywork/completions"
     local rc_file="${TEST_HOME}/.bashrc"
     touch "$rc_file"
@@ -296,7 +330,7 @@ EOF
     fi
 }
 
-@test "completions: generated bash completion is context-aware" {
+@test "module: completions: generated bash completion is context-aware" {
     # Run install to generate completions
     run "${EASYWORK_ROOT}/bin/easywork" install --yes
     [[ "$status" -eq 0 ]]
@@ -329,7 +363,7 @@ EOF
     [[ "$found_show" == "true" ]]
 }
 
-@test "completions: zsh completion file uses explicit compdef not fpath autoload" {
+@test "module: completions: zsh completion file uses explicit compdef not fpath autoload" {
     run "${EASYWORK_ROOT}/bin/easywork" install --yes
     local comp_dir="${TEST_HOME}/.easywork/completions"
 
@@ -345,7 +379,7 @@ EOF
     fi
 }
 
-@test "completions: injects source line into both bash and zsh rc files" {
+@test "module: completions: injects source line into both bash and zsh rc files" {
     # Create both rc files ahead of time
     touch "${TEST_HOME}/.bashrc"
     touch "${TEST_HOME}/.zshrc"
@@ -358,7 +392,7 @@ EOF
     grep -qF "# EasyWork completion" "${TEST_HOME}/.zshrc"
 }
 
-@test "completions: removal cleans up from all rc files and preserves user content" {
+@test "module: completions: removal cleans up from all rc files and preserves user content" {
     # Pre-create rc files so _detect_completion_rc_files includes them on all platforms
     touch "${TEST_HOME}/.bashrc"
     touch "${TEST_HOME}/.zshrc"
@@ -388,7 +422,7 @@ EOF
     grep -q "my zsh setting" "${TEST_HOME}/.zshrc"
 }
 
-@test "completions: idempotent injection does not duplicate lines" {
+@test "module: completions: idempotent injection does not duplicate lines" {
     touch "${TEST_HOME}/.bashrc"
 
     # First install
@@ -403,4 +437,26 @@ EOF
 
     [[ "$count1" -eq 1 ]]
     [[ "$count2" -eq 1 ]]
+}
+
+@test "module: completions: _detect_rc_file returns valid path" {
+    source "${EASYWORK_ROOT}/lib/completions.sh"
+    local rc
+    rc="$(_detect_rc_file)"
+    [[ "$rc" == "$HOME/"* ]]
+    # Path must end in rc or profile
+    [[ "$rc" =~ \.(bashrc|bash_profile|zshrc)$ ]]
+}
+
+@test "module: completions: _detect_completion_rc_files covers bash and zsh" {
+    source "${EASYWORK_ROOT}/lib/completions.sh"
+    local files
+    files="$(_detect_completion_rc_files)"
+    [[ "$files" =~ "zsh:" ]]
+    [[ "$files" =~ "bash:" ]]
+    # Each line has format shell_type:absolute_path
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        [[ "$line" =~ ^(zsh|bash): ]]
+    done <<< "$files"
 }

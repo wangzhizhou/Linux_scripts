@@ -330,7 +330,6 @@ cmd_update() {
     exec "$easywork_path" install --yes
 }
 
-
 # ─── CLI: Help ────────────────────────────────────────────────
 cmd_help() {
     local module_count=0

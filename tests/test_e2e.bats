@@ -36,12 +36,28 @@ MOCK_CURL
     chmod +x "$TEST_HOME/.local/bin/curl"
 
     # Mock other commands
+    # GIT_MOCK_IN_REPO: set to "true" to make git rev-parse --git-dir succeed
     for cmd in git vim brew sudo node; do
-        cat > "$TEST_HOME/.local/bin/$cmd" << EOF
+        cat > "$TEST_HOME/.local/bin/$cmd" << 'MOCK_CMD'
 #!/usr/bin/env bash
-case "\${1:-}" in config) echo "mock-value" ;; rev-parse) [[ "\$*" == *--git-dir* ]] && exit 128 ;; esac
+case "${1:-}" in
+    config) echo "mock-value" ;;
+    rev-parse)
+        if [[ "$*" == *--git-dir* ]]; then
+            if [[ "${GIT_MOCK_IN_REPO:-false}" == "true" ]]; then
+                echo "$HOME/fake-repo/.git"
+                exit 0
+            fi
+            exit 128
+        fi
+        if [[ "$*" == *--show-toplevel* ]]; then
+            echo "$HOME/fake-repo"
+            exit 0
+        fi
+        ;;
+esac
 exit 0
-EOF
+MOCK_CMD
         chmod +x "$TEST_HOME/.local/bin/$cmd"
     done
 
@@ -209,4 +225,91 @@ EOF
     [[ "$status" -eq 0 ]]
     # Module config files should NOT be created
     [[ ! -f "$TEST_HOME/.sh_config_custom" ]]
+}
+
+# ─── H: git local scope ──────────────────────────────────────
+
+@test "e2e: git --yes install defaults to global scope" {
+    # In non-interactive (--yes) mode, git always defaults to global scope
+    export GIT_MOCK_IN_REPO=true
+    mkdir -p "$TEST_HOME/fake-repo/.git"
+    mkdir -p "$TEST_HOME/.easywork"
+    cat > "$TEST_HOME/.easywork/config" << 'EOF'
+## git
+GIT_PERSONAL_NAME="Test User"
+GIT_PERSONAL_EMAIL="test@example.com"
+EOF
+    run easywork install git --dry-run --yes
+    [[ "$status" -eq 0 ]]
+    # --yes mode defaults to global regardless of GIT_MOCK_IN_REPO
+    [[ "$output" =~ "配置级别: global" ]]
+}
+
+@test "e2e: git with GIT_MOCK_IN_REPO=false still works" {
+    export GIT_MOCK_IN_REPO=false
+    mkdir -p "$TEST_HOME/.easywork"
+    cat > "$TEST_HOME/.easywork/config" << 'EOF'
+## git
+GIT_PERSONAL_NAME="Test User"
+GIT_PERSONAL_EMAIL="test@example.com"
+EOF
+    run easywork install git --dry-run --yes
+    [[ "$status" -eq 0 ]]
+    [[ "$output" =~ "配置级别: global" ]]
+}
+
+# ─── I: cmd_update ───────────────────────────────────────────
+
+@test "e2e: update runs without crashing" {
+    # The update command fetches from GitHub API and compares versions.
+    # In mock mode it detects v1.0.0 > 0.0.1, then prompts interactively.
+    # Without a tty, the command gracefully handles the failed read.
+    # We just verify it doesn't crash.
+    mkdir -p "$TEST_HOME/.easywork"
+    echo "easywork_version=0.0.1" > "$TEST_HOME/.easywork/manifest"
+    run easywork update 2>&1 || true
+    # The command should run its logic without a hard crash
+    [[ "$output" =~ "检查更新" || "$output" =~ "当前版本" || "$output" =~ "最新版本" ]]
+}
+
+@test "e2e: update handles network failure gracefully" {
+    # Override mock curl to fail for api requests
+    cat > "$TEST_HOME/.local/bin/curl" << 'FAIL_CURL'
+#!/usr/bin/env bash
+if [[ "$*" == *"api.github.com"* ]]; then
+    exit 1
+fi
+exit 0
+FAIL_CURL
+    chmod +x "$TEST_HOME/.local/bin/curl"
+    mkdir -p "$TEST_HOME/.easywork"
+    echo "easywork_version=0.0.1" > "$TEST_HOME/.easywork/manifest"
+    run easywork update 2>&1
+    # Should fail gracefully with network error
+    [[ "$status" -ne 0 ]]
+}
+
+# ─── J: completion status ────────────────────────────────────
+
+@test "e2e: completion status reports state" {
+    run easywork completion status
+    [[ "$status" -eq 0 ]]
+    [[ "$output" =~ "补全文件目录" ]]
+}
+
+@test "e2e: completion status after install shows injected files" {
+    easywork install --yes 2> /dev/null
+    run easywork completion status
+    [[ "$status" -eq 0 ]]
+    [[ "$output" =~ "补全文件目录" ]]
+    [[ "$output" =~ "✓" ]]
+}
+
+@test "e2e: completion remove cleans up" {
+    easywork install --yes 2> /dev/null
+    run easywork completion remove
+    [[ "$status" -eq 0 ]]
+    # Verify removal
+    run easywork completion status
+    [[ ! "$output" =~ "✓" ]]
 }
